@@ -75,7 +75,7 @@ def train_resnet18(num_epochs, learning_rate, batch_size, output_folder, weight_
             total_train_loss += loss.item()
 
             if i % 25 == 24:
-                print(f'[{epoch + 1}, {i + 1:5d} / {len(train_dl)}] loss: {running_loss / 25:.3f}')
+                # print(f'[{epoch + 1}, {i + 1:5d} / {len(train_dl)}] loss: {running_loss / 25:.3f}')
                 running_loss = 0.0
 
         avg_train_loss = total_train_loss / len(train_dl)
