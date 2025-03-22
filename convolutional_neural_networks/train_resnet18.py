@@ -38,12 +38,13 @@ def parse_arguments():
     parser.add_argument('--lr', type=float, default=0.001, help='learning rate')
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--output_folder', type=str, default='output')
+    parser.add_argument('--weight_decay', type=float, default=0.0)
 
     args = parser.parse_args()
     return args
 
 
-def train_resnet18(num_epochs, learning_rate, batch_size, output_folder):
+def train_resnet18(num_epochs, learning_rate, batch_size, output_folder, weight_decay):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     train_path = get_train_dataset_path()
     test_path = get_test_dataset_path()
@@ -51,12 +52,11 @@ def train_resnet18(num_epochs, learning_rate, batch_size, output_folder):
     test_dl = create_data_loader(test_path, batch_size)
     resnet18 = models.resnet18(weights=None).to(device)
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(resnet18.parameters(), lr=learning_rate)
+    optimizer = optim.Adam(resnet18.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
     metric_data = []
 
     for epoch in range(num_epochs):
-        resnet18.train()
         running_loss = 0.0
         total_train_loss = 0.0
 
@@ -99,7 +99,7 @@ def train_resnet18(num_epochs, learning_rate, batch_size, output_folder):
         metrics['test_loss'] = avg_test_loss
         metric_data.append(metrics)
 
-    out_file_path = os.path.join(output_folder, f'resnet18_e{epoch}_lr{learning_rate}_bs{batch_size}.csv')
+    out_file_path = os.path.join(output_folder, f'resnet18_e{epoch}_lr{learning_rate}_bs{batch_size}_wd{weight_decay}.csv')
     df_metric_data = pd.DataFrame(metric_data)
     df_metric_data.to_csv(out_file_path, index=False)
     print('Finished Training')
@@ -111,7 +111,8 @@ def main():
     learning_rate = args.lr
     batch_size = args.batch_size
     output_folder = args.output_folder
-    train_resnet18(num_epochs, learning_rate, batch_size, output_folder)
+    weight_decay = args.weight_decay
+    train_resnet18(num_epochs, learning_rate, batch_size, output_folder, weight_decay)
 
 
 if __name__ == '__main__':
