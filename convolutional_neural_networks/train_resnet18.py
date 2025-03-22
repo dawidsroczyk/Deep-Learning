@@ -44,11 +44,12 @@ def parse_arguments():
 
 
 def train_resnet18(num_epochs, learning_rate, batch_size, output_folder):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     train_path = get_train_dataset_path()
     test_path = get_test_dataset_path()
     train_dl = create_data_loader(train_path, batch_size)
     test_dl = create_data_loader(test_path, batch_size)
-    resnet18 = models.resnet18(weights=None)
+    resnet18 = models.resnet18(weights=None).to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(resnet18.parameters(), lr=learning_rate)
 
@@ -61,6 +62,7 @@ def train_resnet18(num_epochs, learning_rate, batch_size, output_folder):
 
         for i, data in enumerate(train_dl, 0):
             inputs, labels = data
+            inputs, labels = inputs.to(device), labels.to(device)
 
             optimizer.zero_grad()
 
@@ -83,6 +85,7 @@ def train_resnet18(num_epochs, learning_rate, batch_size, output_folder):
         with torch.no_grad():
             for data in test_dl:
                 inputs, labels = data
+                inputs, labels = inputs.to(device), labels.to(device)
                 outputs = resnet18(inputs)
                 loss = criterion(outputs, labels)
                 total_test_loss += loss.item()
