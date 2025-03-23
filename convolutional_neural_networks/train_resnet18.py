@@ -56,7 +56,9 @@ def train_resnet18(num_epochs, learning_rate, batch_size, output_folder, weight_
     resnet18 = resnet18.to(device)
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(resnet18.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    # optimizer = optim.Adam(resnet18.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    optimizer = optim.SGD(resnet18.parameters(), lr=learning_rate,
+                      momentum=0.9, weight_decay=weight_decay)
 
     metric_data = []
 
