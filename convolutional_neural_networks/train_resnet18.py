@@ -50,8 +50,11 @@ def train_resnet18(num_epochs, learning_rate, batch_size, output_folder, weight_
     test_path = get_test_dataset_path()
     train_dl = create_data_loader(train_path, batch_size)
     test_dl = create_data_loader(test_path, batch_size)
+
     resnet18 = models.resnet18(weights=None).to(device)
     resnet18.fc = nn.Linear(resnet18.fc.in_features, 10)
+    resnet18 = resnet18.to(device)
+
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(resnet18.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
