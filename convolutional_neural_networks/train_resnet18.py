@@ -51,6 +51,7 @@ def train_resnet18(num_epochs, learning_rate, batch_size, output_folder, weight_
     train_dl = create_data_loader(train_path, batch_size)
     test_dl = create_data_loader(test_path, batch_size)
     resnet18 = models.resnet18(weights=None).to(device)
+    resnet18.fc = nn.Linear(resnet18.fc.in_features, 10)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(resnet18.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
@@ -82,21 +83,32 @@ def train_resnet18(num_epochs, learning_rate, batch_size, output_folder, weight_
         print(f'Epoch {epoch + 1}, Training Loss: {avg_train_loss:.3f}')
 
         total_test_loss = 0.0
+        correct = 0
+        total = 0
         with torch.no_grad():
             for data in test_dl:
                 inputs, labels = data
                 inputs, labels = inputs.to(device), labels.to(device)
                 outputs = resnet18(inputs)
+
                 loss = criterion(outputs, labels)
                 total_test_loss += loss.item()
 
+                _, predicted = torch.max(outputs, 1)
+
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
+
+        test_accuracy = correct / total
+
         avg_test_loss = total_test_loss / len(test_dl)
-        print(f'Epoch {epoch + 1}, Test Loss: {avg_test_loss:.3f}')
+        print(f'Epoch {epoch + 1}, Test Loss: {avg_test_loss:.3f}, Accuracy: {test_accuracy}')
 
         metrics = {}
         metrics['epoch'] = epoch
         metrics['train_loss'] = avg_train_loss
         metrics['test_loss'] = avg_test_loss
+        metrics['test_accuracy'] = test_accuracy
         metric_data.append(metrics)
 
     out_file_path = os.path.join(output_folder, f'resnet18_e{epoch}_lr{learning_rate}_bs{batch_size}_wd{weight_decay}.csv')
