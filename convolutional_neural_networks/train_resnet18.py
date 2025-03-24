@@ -13,18 +13,31 @@ import sys
 import argparse
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-def create_data_loader(data_path, batch_size):
+def create_data_loader(data_path, batch_size, train=False):
     # define mean and std for normalizing the dataset
     cinic_mean = [0.47889522, 0.47227842, 0.43047404]
     cinic_std = [0.24205776, 0.23828046, 0.25874835]
 
+    train_transform = transforms.Compose([
+        transforms.RandomResizedCrop(32, scale=(0.8, 1.0)),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomRotation(15),
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+        transforms.ToTensor(),
+        transforms.Normalize(cinic_mean, cinic_std),
+    ])
+
+    test_transform = transforms.Compose([
+                    transforms.ToTensor(),
+                    transforms.Normalize(mean=cinic_mean, std=cinic_std)
+                ])
+    
+    chosen_transform = train_transform if train else test_transform
+
     # define standard data loaders
     data_loader = torch.utils.data.DataLoader(
             torchvision.datasets.ImageFolder(data_path,
-                transform=transforms.Compose([
-                    transforms.ToTensor(),
-                    transforms.Normalize(mean=cinic_mean, std=cinic_std)
-                ])),
+                transform=chosen_transform),
             batch_size=batch_size,
             shuffle=True
         )
@@ -49,7 +62,7 @@ def train_resnet18(num_epochs, learning_rate, batch_size, output_folder, weight_
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     train_path = get_train_dataset_path()
     test_path = get_test_dataset_path()
-    train_dl = create_data_loader(train_path, batch_size)
+    train_dl = create_data_loader(train_path, batch_size, train=True)
     test_dl = create_data_loader(test_path, batch_size)
 
     resnet18 = models.resnet18(weights=None).to(device)
