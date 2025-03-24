@@ -11,6 +11,7 @@ import torch.optim as optim
 import torch.nn as nn
 import sys
 import argparse
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 def create_data_loader(data_path, batch_size):
     # define mean and std for normalizing the dataset
@@ -57,8 +58,17 @@ def train_resnet18(num_epochs, learning_rate, batch_size, output_folder, weight_
 
     criterion = nn.CrossEntropyLoss()
     # optimizer = optim.Adam(resnet18.parameters(), lr=learning_rate, weight_decay=weight_decay)
-    optimizer = optim.SGD(resnet18.parameters(), lr=learning_rate,
-                      momentum=0.9, weight_decay=weight_decay)
+    # optimizer = optim.SGD(resnet18.parameters(), lr=learning_rate,
+    #                   momentum=0.9, weight_decay=weight_decay)
+
+    optimizer = optim.SGD(resnet18.parameters(), 
+                         lr=learning_rate,
+                         momentum=0.9,
+                         weight_decay=weight_decay,
+                         nesterov=True)
+    
+    # Learning rate scheduler
+    scheduler = ReduceLROnPlateau(optimizer, 'min', patience=5, factor=0.1, verbose=True)
 
     metric_data = []
 
