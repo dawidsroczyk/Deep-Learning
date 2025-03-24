@@ -18,6 +18,7 @@ def create_data_loader(data_path, batch_size, train=False):
     cinic_mean = [0.47889522, 0.47227842, 0.43047404]
     cinic_std = [0.24205776, 0.23828046, 0.25874835]
 
+    '''
     train_transform = transforms.Compose([
         transforms.RandomResizedCrop(32, scale=(0.8, 1.0)),
         transforms.RandomHorizontalFlip(),
@@ -25,6 +26,13 @@ def create_data_loader(data_path, batch_size, train=False):
         transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
         transforms.ToTensor(),
         transforms.Normalize(cinic_mean, cinic_std),
+    ])
+    '''
+    train_transform = transforms.Compose([
+        transforms.RandomCrop(32, padding=4),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=cinic_mean, std=cinic_std)
     ])
 
     test_transform = transforms.Compose([
