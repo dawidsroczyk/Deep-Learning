@@ -11,7 +11,7 @@ import torch.optim as optim
 import torch.nn as nn
 import sys
 import argparse
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR
 
 def create_data_loader(data_path, batch_size, train=False):
     # define mean and std for normalizing the dataset
@@ -82,6 +82,7 @@ def train_resnet18(num_epochs, learning_rate, batch_size, output_folder, weight_
     # optimizer = optim.SGD(resnet18.parameters(), lr=learning_rate,
     #                   momentum=0.9, weight_decay=weight_decay)
 
+    '''
     optimizer = optim.SGD(resnet18.parameters(), 
                          lr=learning_rate,
                          momentum=0.9,
@@ -90,6 +91,14 @@ def train_resnet18(num_epochs, learning_rate, batch_size, output_folder, weight_
     
     # Learning rate scheduler
     scheduler = ReduceLROnPlateau(optimizer, 'min', patience=5, factor=0.1, verbose=True)
+    '''
+    optimizer = torch.optim.SGD(resnet18.parameters(),
+                            lr=learning_rate,
+                            momentum=0.9,
+                            weight_decay=weight_decay)
+    scheduler = CosineAnnealingLR(optimizer=optimizer, T_max=num_epochs, eta_min=0)
+
+
 
     metric_data = []
 
