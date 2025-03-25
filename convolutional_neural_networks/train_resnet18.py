@@ -29,10 +29,13 @@ def create_data_loader(data_path, batch_size, train=False):
     ])
     '''
     train_transform = transforms.Compose([
-        transforms.RandomCrop(32, padding=4),
+        transforms.RandomResizedCrop(32, scale=(0.8, 1.0)),
         transforms.RandomHorizontalFlip(),
+        transforms.RandomRotation(15),
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
         transforms.ToTensor(),
-        transforms.Normalize(mean=cinic_mean, std=cinic_std)
+        transforms.Normalize(cinic_mean, cinic_std),
+        transforms.RandomErasing(p=0.1, scale=(0.02, 0.1), value='random')
     ])
 
     test_transform = transforms.Compose([
@@ -95,7 +98,8 @@ def train_resnet18(num_epochs, learning_rate, batch_size, output_folder, weight_
     optimizer = torch.optim.SGD(resnet18.parameters(),
                             lr=learning_rate,
                             momentum=0.9,
-                            weight_decay=weight_decay)
+                            weight_decay=weight_decay,
+                            nesterov=True)
     scheduler = CosineAnnealingLR(optimizer=optimizer, T_max=num_epochs, eta_min=0)
 
 
@@ -148,6 +152,8 @@ def train_resnet18(num_epochs, learning_rate, batch_size, output_folder, weight_
 
         avg_test_loss = total_test_loss / len(test_dl)
         print(f'Epoch {epoch + 1}, Test Loss: {avg_test_loss:.3f}, Accuracy: {test_accuracy}')
+
+        scheduler.step()
 
         metrics = {}
         metrics['epoch'] = epoch
