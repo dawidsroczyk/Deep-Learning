@@ -104,7 +104,6 @@ def train_resnet18(num_epochs, learning_rate, batch_size, momentum, weight_decay
             loss.backward()
             optimizer.step()
 
-            running_loss += loss.item()
             total_train_loss += loss.item()
 
         avg_train_loss = total_train_loss / len(train_dl)
