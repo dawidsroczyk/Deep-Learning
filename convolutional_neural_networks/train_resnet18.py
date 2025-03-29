@@ -61,15 +61,16 @@ def parse_arguments():
 
     parser.add_argument('--epochs', type=int, default=5)
     parser.add_argument('--lr', type=float, default=0.001, help='learning rate')
-    parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--output_folder', type=str, default='output')
-    parser.add_argument('--weight_decay', type=float, default=0.0)
+    parser.add_argument('--weight_decay', type=float, default=5e-4)
+    parser.add_argument('--momentum', type=float, default=0.9)
 
     args = parser.parse_args()
     return args
 
 
-def train_resnet18(num_epochs, learning_rate, batch_size, output_folder, weight_decay):
+def train_resnet18(num_epochs, learning_rate, batch_size, momentum, weight_decay, output_folder):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     train_path = get_train_dataset_path()
     test_path = get_test_dataset_path()
@@ -81,33 +82,15 @@ def train_resnet18(num_epochs, learning_rate, batch_size, output_folder, weight_
     resnet18 = resnet18.to(device)
 
     criterion = nn.CrossEntropyLoss()
-    # optimizer = optim.Adam(resnet18.parameters(), lr=learning_rate, weight_decay=weight_decay)
-    # optimizer = optim.SGD(resnet18.parameters(), lr=learning_rate,
-    #                   momentum=0.9, weight_decay=weight_decay)
-
-    '''
-    optimizer = optim.SGD(resnet18.parameters(), 
-                         lr=learning_rate,
-                         momentum=0.9,
-                         weight_decay=weight_decay,
-                         nesterov=True)
     
-    # Learning rate scheduler
-    scheduler = ReduceLROnPlateau(optimizer, 'min', patience=5, factor=0.1, verbose=True)
-    '''
     optimizer = torch.optim.SGD(resnet18.parameters(),
                             lr=learning_rate,
-                            momentum=0.9,
-                            weight_decay=weight_decay,
-                            nesterov=True)
-    scheduler = CosineAnnealingLR(optimizer=optimizer, T_max=num_epochs, eta_min=0)
-
-
+                            momentum=momentum,
+                            weight_decay=weight_decay)
 
     metric_data = []
 
     for epoch in range(num_epochs):
-        running_loss = 0.0
         total_train_loss = 0.0
 
         for i, data in enumerate(train_dl, 0):
@@ -123,10 +106,6 @@ def train_resnet18(num_epochs, learning_rate, batch_size, output_folder, weight_
 
             running_loss += loss.item()
             total_train_loss += loss.item()
-
-            if i % 25 == 24:
-                # print(f'[{epoch + 1}, {i + 1:5d} / {len(train_dl)}] loss: {running_loss / 25:.3f}')
-                running_loss = 0.0
 
         avg_train_loss = total_train_loss / len(train_dl)
         print(f'Epoch {epoch + 1}, Training Loss: {avg_train_loss:.3f}')
@@ -153,8 +132,6 @@ def train_resnet18(num_epochs, learning_rate, batch_size, output_folder, weight_
         avg_test_loss = total_test_loss / len(test_dl)
         print(f'Epoch {epoch + 1}, Test Loss: {avg_test_loss:.3f}, Accuracy: {test_accuracy}')
 
-        scheduler.step()
-
         metrics = {}
         metrics['epoch'] = epoch
         metrics['train_loss'] = avg_train_loss
@@ -175,7 +152,13 @@ def main():
     batch_size = args.batch_size
     output_folder = args.output_folder
     weight_decay = args.weight_decay
-    train_resnet18(num_epochs, learning_rate, batch_size, output_folder, weight_decay)
+    momentum=args.momentum
+    train_resnet18(num_epochs=num_epochs,
+                   learning_rate=learning_rate,
+                   batch_size=batch_size,
+                   output_folder=output_folder,
+                   weight_decay=weight_decay,
+                   momentum=momentum)
 
 
 if __name__ == '__main__':
