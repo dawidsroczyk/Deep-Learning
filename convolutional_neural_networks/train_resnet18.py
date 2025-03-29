@@ -12,6 +12,7 @@ import torch.nn as nn
 import sys
 import argparse
 from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR
+import random
 
 def create_data_loader(data_path, batch_size, train=False):
     # define mean and std for normalizing the dataset
@@ -55,12 +56,21 @@ def parse_arguments():
     parser.add_argument('--output_folder', type=str, default='output')
     parser.add_argument('--weight_decay', type=float, default=5e-4)
     parser.add_argument('--momentum', type=float, default=0.9)
+    parser.add_argument('--random_seed', type=int, default=0)
 
     args = parser.parse_args()
     return args
 
+def set_random_seed(random_seed):
+    np.random.seed(random_seed)
+    torch.manual_seed(random_seed)
+    random.seed(random_seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
-def train_resnet18(num_epochs, learning_rate, batch_size, momentum, weight_decay, output_folder):
+def train_resnet18(num_epochs, learning_rate, batch_size, momentum, weight_decay, random_seed, output_folder):
+    set_random_seed(random_seed=random_seed)
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     train_path = get_train_dataset_path()
     test_path = get_test_dataset_path()
@@ -128,7 +138,7 @@ def train_resnet18(num_epochs, learning_rate, batch_size, momentum, weight_decay
         metrics['test_accuracy'] = test_accuracy
         metric_data.append(metrics)
 
-    out_file_path = os.path.join(output_folder, f'resnet18_e{epoch}_lr{learning_rate}_bs{batch_size}_wd{weight_decay}.csv')
+    out_file_path = os.path.join(output_folder, f'resnet18_e{epoch}_lr{learning_rate}_bs{batch_size}_momentum{momentum}_wd{weight_decay}_seed{random_seed}.csv')
     df_metric_data = pd.DataFrame(metric_data)
     df_metric_data.to_csv(out_file_path, index=False)
     print('Finished Training')
@@ -142,12 +152,14 @@ def main():
     output_folder = args.output_folder
     weight_decay = args.weight_decay
     momentum=args.momentum
+    random_seed = args.random_seed
     train_resnet18(num_epochs=num_epochs,
                    learning_rate=learning_rate,
                    batch_size=batch_size,
                    output_folder=output_folder,
                    weight_decay=weight_decay,
-                   momentum=momentum)
+                   momentum=momentum,
+                   random_seed=random_seed)
 
 
 if __name__ == '__main__':
