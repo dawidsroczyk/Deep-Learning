@@ -6,7 +6,7 @@ import torchvision
 
 
 def get_dataset_path():
-    save_path = os.path.join('data', 'raw')
+    save_path = os.path.join('data', 'raw', 'imagenet-mini')
     os.makedirs(save_path, exist_ok=True)
     if len(os.listdir(save_path)) > 0:
         return save_path
