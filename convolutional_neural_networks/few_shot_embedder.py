@@ -12,6 +12,7 @@ import torch.nn.functional as F
 import argparse
 from torch.utils.data import DataLoader, Subset, RandomSampler
 from download_dataset import get_train_dataset_path, get_test_dataset_path
+from torchvision import datasets
 
 # Set device to GPU if available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
