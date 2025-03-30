@@ -13,7 +13,7 @@ def get_dataset_path():
     path = kagglehub.dataset_download("ifigotin/imagenetmini-1000")
     for item in os.listdir(path):
         shutil.move(os.path.join(path, item), save_path)
-    return os.path.join(save_path, 'imagenet-mini')
+    return save_path
 
 
 def get_train_dataset_path():
