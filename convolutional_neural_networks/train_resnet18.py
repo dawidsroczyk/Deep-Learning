@@ -68,7 +68,8 @@ def set_random_seed(random_seed):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-def train_resnet18(num_epochs, learning_rate, batch_size, momentum, weight_decay, random_seed, output_folder):
+def train_resnet18(num_epochs, learning_rate, batch_size, momentum, 
+                   weight_decay, random_seed, output_folder, label_smoothing=0.0):
     set_random_seed(random_seed=random_seed)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -81,7 +82,7 @@ def train_resnet18(num_epochs, learning_rate, batch_size, momentum, weight_decay
     resnet18.fc = nn.Linear(resnet18.fc.in_features, 10)
     resnet18 = resnet18.to(device)
 
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
     
     optimizer = torch.optim.SGD(resnet18.parameters(),
                             lr=learning_rate,
@@ -138,7 +139,7 @@ def train_resnet18(num_epochs, learning_rate, batch_size, momentum, weight_decay
         metrics['test_accuracy'] = test_accuracy
         metric_data.append(metrics)
 
-    out_file_path = os.path.join(output_folder, f'resnet18_e{epoch}_lr{learning_rate}_bs{batch_size}_momentum{momentum}_wd{weight_decay}_seed{random_seed}.csv')
+    out_file_path = os.path.join(output_folder, f'resnet18_e{epoch}_lr{learning_rate}_bs{batch_size}_momentum{momentum}_wd{weight_decay}_ls{label_smoothing}_seed{random_seed}.csv')
     df_metric_data = pd.DataFrame(metric_data)
     df_metric_data.to_csv(out_file_path, index=False)
     print('Finished Training')
