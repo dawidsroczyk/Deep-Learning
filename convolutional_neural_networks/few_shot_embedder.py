@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader, Subset, RandomSampler
 from torchvision import datasets, transforms
 import numpy as np
 import gc
+from download_dataset import get_train_dataset_path, get_test_dataset_path
 
 # Memory optimization settings
 torch.backends.cudnn.benchmark = True  # Faster convolutions without changing architecture
