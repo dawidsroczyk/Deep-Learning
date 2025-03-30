@@ -3,20 +3,19 @@ import torch
 import torchvision.models as models
 import torchvision
 import torchvision.transforms as transforms
-from download_dataset import get_train_dataset_path, get_test_dataset_path
 import numpy as np
 import pandas as pd
 import os
 import torch.optim as optim
 import torch.nn as nn
 import torch.nn.functional as F
-import sys
 import argparse
-import torch
-from torch.utils.data import DataLoader, Subset
-from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, Subset, RandomSampler
+from download_dataset import get_train_dataset_path, get_test_dataset_path
 
+# Set device to GPU if available
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(f"Using device: {device}")
 
 class FewShotEmbedder(nn.Module):
     def __init__(self):
@@ -25,33 +24,32 @@ class FewShotEmbedder(nn.Module):
             nn.Conv2d(3, 64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(),
-            nn.Dropout(0.3),  # Added dropout
+            nn.Dropout(0.3),
             nn.MaxPool2d(kernel_size=2, stride=2),
             
             nn.Conv2d(64, 64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(),
-            nn.Dropout(0.3),  # Added dropout
+            nn.Dropout(0.3),
             nn.MaxPool2d(kernel_size=2, stride=2),
             
             nn.Conv2d(64, 64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(),
-            nn.Dropout(0.3),  # Added dropout
+            nn.Dropout(0.3),
             nn.MaxPool2d(kernel_size=2, stride=2),
             
             nn.Conv2d(64, 64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(),
-            nn.Dropout(0.3),  # Added dropout
+            nn.Dropout(0.3),
             nn.MaxPool2d(kernel_size=2, stride=2),
             
             nn.Flatten()
         )
     
     def forward(self, x):
-        x = self.blocks(x)
-        return x
+        return self.blocks(x)
 
 def create_class_dataloaders(data_path, batch_size, num_workers=2):
     full_dataset = datasets.ImageFolder(data_path)
@@ -59,16 +57,11 @@ def create_class_dataloaders(data_path, batch_size, num_workers=2):
     cinic_mean = [0.47889522, 0.47227842, 0.43047404]
     cinic_std = [0.24205776, 0.23828046, 0.25874835]
     
-
     transform = transforms.Compose([
+        transforms.Resize((32, 32)),
         transforms.RandomHorizontalFlip(),
         transforms.RandomRotation(10),
         transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=cinic_mean, std=cinic_std)
-    ])
-    transform = transforms.Compose([
-        transforms.Resize((32, 32)),
         transforms.ToTensor(),
         transforms.Normalize(mean=cinic_mean, std=cinic_std)
     ])
@@ -82,85 +75,84 @@ def create_class_dataloaders(data_path, batch_size, num_workers=2):
     class_loaders = {}
     for class_idx, indices in class_indices.items():
         subset = Subset(dataset, indices)
-        # Reduce num_workers if issues persist
         loader = DataLoader(
             subset,
             batch_size=batch_size,
             sampler=RandomSampler(subset, replacement=True),
-            num_workers=1,
-            shuffle=False,
-            persistent_workers=False  # Add this line
+            num_workers=num_workers,
+            pin_memory=True,  # Speeds up GPU transfer
+            persistent_workers=num_workers > 0
         )
         class_loaders[class_idx] = loader
     
     return class_loaders, class_names
 
-def episode(embedder,
-            criterion,
-            support_class_loaders, 
-            support_class_names, 
-            query_class_loaders, 
-            query_class_names,
-            C,
-            ):
+def episode(embedder, criterion, support_class_loaders, support_class_names, 
+            query_class_loaders, query_class_names, C):
     cos = nn.CosineSimilarity(dim=-1, eps=1e-6)
     S_means = []
     Q = []
 
-    for idx, c in enumerate(C):
-        # Support phase
-        scl = support_class_loaders[support_class_names.index(c)]
-        S_images, _ = next(iter(scl))
-        S_embeddings = embedder(S_images)
-        S_means.append(S_embeddings.mean(dim=0))  # Mean across support samples
-
-        # Query phase
-        qcl = query_class_loaders[query_class_names.index(c)]
-        Q_images, _ = next(iter(qcl))
-        Q_embeddings = embedder(Q_images)
-        Q.append((idx, Q_embeddings))
-
-    S_means = torch.stack(S_means)  # [M, embedding_dim]
-
-    loss = 0
-    total_samples = 0
-    for idx, Q_embeds in Q:
-        # Calculate similarities [query_batch_size, M]
-        cos_sims = cos(Q_embeds.unsqueeze(1), S_means.unsqueeze(0))
-        
-        # Calculate loss
-        log_probs = F.log_softmax(cos_sims, dim=1)
-        targets = torch.full((Q_embeds.shape[0],), idx, device=Q_embeds.device)
-        loss += criterion(log_probs, targets) * Q_embeds.shape[0]  # Weight by number of queries
-        total_samples += Q_embeds.shape[0]
+    embedder.eval() if not embedder.training else embedder.train()
     
-    return loss / total_samples  # Normalize by total query samples
+    with torch.set_grad_enabled(embedder.training):
+        for idx, c in enumerate(C):
+            # Support phase
+            scl = support_class_loaders[support_class_names.index(c)]
+            S_images, _ = next(iter(scl))
+            S_images = S_images.to(device)
+            S_embeddings = embedder(S_images)
+            S_means.append(S_embeddings.mean(dim=0))
+
+            # Query phase
+            qcl = query_class_loaders[query_class_names.index(c)]
+            Q_images, _ = next(iter(qcl))
+            Q_images = Q_images.to(device)
+            Q_embeddings = embedder(Q_images)
+            Q.append((idx, Q_embeddings))
+
+        S_means = torch.stack(S_means)  # [M, embedding_dim]
+
+        loss = 0
+        total_samples = 0
+        for idx, Q_embeds in Q:
+            cos_sims = cos(Q_embeds.unsqueeze(1), S_means.unsqueeze(0))
+            log_probs = F.log_softmax(cos_sims, dim=1)
+            targets = torch.full((Q_embeds.shape[0],), idx, device=device)
+            loss += criterion(log_probs, targets) * Q_embeds.shape[0]
+            total_samples += Q_embeds.shape[0]
+    
+    return loss / total_samples if total_samples > 0 else torch.tensor(0.0)
 
 def train(embedder: FewShotEmbedder,
           train_classes,
           test_classes,
-          M,
-          S_num,
-          Q_num,
-          num_epochs,
-          train_episodes,
-          test_episodes):
+          M=5,
+          S_num=5,
+          Q_num=15,
+          num_epochs=50,
+          train_episodes=100,
+          test_episodes=50):
     
-    criterion = nn.NLLLoss()
-    # optimizer = optim.Adam(embedder.parameters(), lr=1e-4, weight_decay=1e-6)
-    optimizer = optim.AdamW(embedder.parameters(), lr=1e-4, weight_decay=1e-4)  # Changed to AdamW with stronger weight decay
+    embedder = embedder.to(device)
+    criterion = nn.NLLLoss().to(device)
+    optimizer = optim.AdamW(embedder.parameters(), lr=1e-4, weight_decay=1e-4)
     
-    # Learning rate scheduler
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, 'min', patience=5, factor=0.5, verbose=True
     )
 
-    # Create loaders with explicit batch sizes
-    support_class_loaders, support_class_names = create_class_dataloaders(get_train_dataset_path(), S_num)
-    query_class_loaders, query_class_names = create_class_dataloaders(get_train_dataset_path(), Q_num)
+    # Create loaders
+    support_class_loaders, support_class_names = create_class_dataloaders(
+        get_train_dataset_path(), S_num
+    )
+    query_class_loaders, query_class_names = create_class_dataloaders(
+        get_train_dataset_path(), Q_num
+    )
     
+    best_loss = float('inf')
     for epoch in range(num_epochs):
-        # Training phase
+        # Training
         embedder.train()
         total_loss = 0.0
         for _ in range(train_episodes):
@@ -174,7 +166,7 @@ def train(embedder: FewShotEmbedder,
             optimizer.step()
             total_loss += loss.item()
         
-        # Evaluation phase
+        # Validation
         embedder.eval()
         total_test_loss = 0.0
         with torch.no_grad():
@@ -186,9 +178,27 @@ def train(embedder: FewShotEmbedder,
                               C)
                 total_test_loss += loss.item()
         
-        # Logging
         avg_train_loss = total_loss / train_episodes
         avg_test_loss = total_test_loss / test_episodes
+        
+        # Update scheduler
+        scheduler.step(avg_test_loss)
+        
+        # Save best model
+        if avg_test_loss < best_loss:
+            best_loss = avg_test_loss
+            torch.save(embedder.state_dict(), 'best_embedder.pth')
+        
         print(f"Epoch {epoch+1}/{num_epochs}: "
               f"Train Loss: {avg_train_loss:.4f}, "
-              f"Test Loss: {avg_test_loss:.4f}")
+              f"Test Loss: {avg_test_loss:.4f}, "
+              f"LR: {optimizer.param_groups[0]['lr']:.2e}")
+
+if __name__ == "__main__":
+    # Example usage
+    embedder = FewShotEmbedder()
+    num_classes = 1000  # Adjust based on your dataset
+    train_classes = list(range(num_classes))
+    test_classes = list(range(num_classes))
+    
+    train(embedder, train_classes, test_classes)
