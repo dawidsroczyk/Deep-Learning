@@ -6,14 +6,14 @@ import torchvision
 
 
 def get_dataset_path():
-    save_path = os.path.join('data', 'raw', 'imagenet-mini')
+    save_path = os.path.join('data', 'raw')
     os.makedirs(save_path, exist_ok=True)
     if len(os.listdir(save_path)) > 0:
         return save_path
     path = kagglehub.dataset_download("ifigotin/imagenetmini-1000")
     for item in os.listdir(path):
         shutil.move(os.path.join(path, item), save_path)
-    return save_path
+    return os.path.join(save_path, 'imagenet-mini')
 
 
 def get_train_dataset_path():
