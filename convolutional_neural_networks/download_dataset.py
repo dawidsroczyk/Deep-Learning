@@ -30,7 +30,7 @@ def get_test_dataset_path():
     Get path to the saved test dataset
     '''
     root_path = get_dataset_path()
-    test_path = os.path.join(root_path, 'test')
+    test_path = os.path.join(root_path, 'val')
     return test_path
 
 
