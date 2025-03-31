@@ -23,7 +23,7 @@ def create_data_loader(data_path, batch_size, train=False, num_augmentations=0):
     augmentations = []
     if num_augmentations > 0:
         if num_augmentations >= 1:
-            augmentations.append(transforms.RandomResizedCrop(32, scale=(0.8, 1.0)))
+            augmentations.append(transforms.RandomHorizontalFlip())
         if num_augmentations >= 2:
             augmentations.append(transforms.RandomRotation(15))
         if num_augmentations >= 3:
