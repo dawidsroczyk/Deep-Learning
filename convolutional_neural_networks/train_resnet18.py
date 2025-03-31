@@ -19,38 +19,49 @@ def create_data_loader(data_path, batch_size, train=False, num_augmentations=4):
     cinic_mean = [0.47889522, 0.47227842, 0.43047404]
     cinic_std = [0.24205776, 0.23828046, 0.25874835]
 
-    transform_list = []
-    
+    # Base transforms that should always be applied last
+    base_transforms = [
+        transforms.ToTensor(),
+        transforms.Normalize(cinic_mean, cinic_std)
+    ]
+
     if train:
-        # Always start with RandomResizedCrop if any augmentations are enabled
+        # Start building augmentation pipeline
+        augmentation_pipeline = []
+        
+        # Level 1: RandomResizedCrop (must be first)
         if num_augmentations >= 1:
-            transform_list.append(transforms.RandomResizedCrop(32, scale=(0.8, 1.0)))
-        
+            augmentation_pipeline.append(
+                transforms.RandomResizedCrop(32, scale=(0.8, 1.0))
+            )
+            
+        # Level 2: RandomRotation
         if num_augmentations >= 2:
-            transform_list.append(transforms.RandomRotation(15))
-        
+            augmentation_pipeline.append(
+                transforms.RandomRotation(15))
+            
+        # Level 3: ColorJitter (must be before ToTensor)
         if num_augmentations >= 3:
-            transform_list.append(transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2))
-        
-        # Convert to tensor before RandomErasing
-        transform_list.append(transforms.ToTensor())
-        
+            augmentation_pipeline.append(
+                transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2))
+            
+        # Combine augmentations with base transforms
+        transform_list = augmentation_pipeline + base_transforms
+            
+        # Level 4: RandomErasing (must be after ToTensor)
         if num_augmentations >= 4:
-            transform_list.append(transforms.RandomErasing(p=0.1, scale=(0.02, 0.1), value='random'))
-        
-        transform_list.append(transforms.Normalize(cinic_mean, cinic_std))
+            # Insert RandomErasing just before Normalize
+            transform_list.insert(-1,  # Insert before last element (Normalize)
+                transforms.RandomErasing(p=0.1, scale=(0.02, 0.1), value='random'))
+            
+        chosen_transform = transforms.Compose(transform_list)
     else:
-        transform_list = [
-            transforms.ToTensor(),
-            transforms.Normalize(cinic_mean, cinic_std)
-        ]
-    
-    chosen_transform = transforms.Compose(transform_list)
+        chosen_transform = transforms.Compose(base_transforms)
     
     return torch.utils.data.DataLoader(
         torchvision.datasets.ImageFolder(data_path, transform=chosen_transform),
         batch_size=batch_size,
-        shuffle=train  # Only shuffle for training
+        shuffle=train
     )
 
 
