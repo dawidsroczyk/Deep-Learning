@@ -57,9 +57,9 @@ def create_class_dataloaders(data_path, batch_size, num_workers=2):
     
     transform = transforms.Compose([
         transforms.Resize((32, 32)),
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomRotation(10),
-        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+        # transforms.RandomHorizontalFlip(),
+        # transforms.RandomRotation(10),
+        # transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
         transforms.ToTensor(),
         transforms.Normalize(mean=cinic_mean, std=cinic_std)
     ])
