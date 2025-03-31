@@ -16,50 +16,42 @@ import random
 
 def create_data_loader(data_path, batch_size, train=False, num_augmentations=4):
 
-    # Define mean and std for normalizing the dataset
     cinic_mean = [0.47889522, 0.47227842, 0.43047404]
     cinic_std = [0.24205776, 0.23828046, 0.25874835]
 
-    # Start with empty transform list
     transform_list = []
     
     if train:
-        # Always apply ToTensor and Normalize at the end
-        base_transforms = [transforms.ToTensor(), 
-                         transforms.Normalize(cinic_mean, cinic_std)]
+        # Always start with RandomResizedCrop if any augmentations are enabled
+        if num_augmentations >= 1:
+            transform_list.append(transforms.RandomResizedCrop(32, scale=(0.8, 1.0)))
         
-        # Available augmentations in order of application
-        augmentations = [
-            transforms.RandomResizedCrop(32, scale=(0.8, 1.0)),
-            transforms.RandomRotation(15),
-            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
-            transforms.RandomErasing(p=0.1, scale=(0.02, 0.1), value='random')
-        ]
+        if num_augmentations >= 2:
+            transform_list.append(transforms.RandomRotation(15))
         
-        # Select first N augmentations
-        selected_augmentations = augmentations[:num_augmentations]
+        if num_augmentations >= 3:
+            transform_list.append(transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2))
         
-        # Combine selected augmentations with base transforms
-        transform_list = selected_augmentations + base_transforms
+        # Convert to tensor before RandomErasing
+        transform_list.append(transforms.ToTensor())
         
-        train_transform = transforms.Compose(transform_list)
-        chosen_transform = train_transform
+        if num_augmentations >= 4:
+            transform_list.append(transforms.RandomErasing(p=0.1, scale=(0.02, 0.1), value='random'))
+        
+        transform_list.append(transforms.Normalize(cinic_mean, cinic_std))
     else:
-        # Test transform remains unchanged
-        test_transform = transforms.Compose([
+        transform_list = [
             transforms.ToTensor(),
-            transforms.Normalize(mean=cinic_mean, std=cinic_std)
-        ])
-        chosen_transform = test_transform
+            transforms.Normalize(cinic_mean, cinic_std)
+        ]
     
-    # Create data loader
-    data_loader = torch.utils.data.DataLoader(
+    chosen_transform = transforms.Compose(transform_list)
+    
+    return torch.utils.data.DataLoader(
         torchvision.datasets.ImageFolder(data_path, transform=chosen_transform),
         batch_size=batch_size,
         shuffle=train  # Only shuffle for training
     )
-    
-    return data_loader
 
 
 def parse_arguments():
