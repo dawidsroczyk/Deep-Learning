@@ -1,0 +1,21 @@
+Accuracy: 0.3264
+
+
+
+Classification Report:
+              precision    recall  f1-score   support
+
+    airplane       0.46      0.61      0.52      9000
+  automobile       0.32      0.23      0.27      9000
+        bird       0.27      0.25      0.26      9000
+         cat       0.19      0.10      0.13      9000
+        deer       0.16      0.00      0.01      9000
+         dog       0.21      0.07      0.10      9000
+        frog       0.30      0.77      0.43      9000
+       horse       0.31      0.48      0.37      9000
+        ship       0.26      0.14      0.18      9000
+       truck       0.43      0.61      0.50      9000
+
+    accuracy                           0.33     90000
+   macro avg       0.29      0.33      0.28     90000
+weighted avg       0.29      0.33      0.28     90000
