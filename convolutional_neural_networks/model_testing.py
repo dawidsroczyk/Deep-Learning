@@ -109,8 +109,8 @@ def plot_images_with_labels(images, actual_labels, predicted_labels, class_names
         inp = torchvision.utils.make_grid(images[i])
 
         inp = inp.numpy().transpose((1, 2, 0))
-        mean = np.array([0.485, 0.456, 0.406])
-        std = np.array([0.229, 0.224, 0.225])
+        mean = np.array([0.47889522, 0.47227842, 0.43047404])
+        std = np.array([0.24205776, 0.23828046, 0.25874835])
         inp = std * inp + mean
         inp = np.clip(inp, 0, 1)
 
