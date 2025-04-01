@@ -10,7 +10,7 @@ def get_dataset_path():
     os.makedirs(save_path, exist_ok=True)
     if len(os.listdir(save_path)) > 0:
         return save_path
-    path = kagglehub.dataset_download("ifigotin/imagenetmini-1000")
+    path = kagglehub.dataset_download("mengcius/cinic10")
     for item in os.listdir(path):
         shutil.move(os.path.join(path, item), save_path)
     return save_path
@@ -30,7 +30,7 @@ def get_test_dataset_path():
     Get path to the saved test dataset
     '''
     root_path = get_dataset_path()
-    test_path = os.path.join(root_path, 'val')
+    test_path = os.path.join(root_path, 'test')
     return test_path
 
 
