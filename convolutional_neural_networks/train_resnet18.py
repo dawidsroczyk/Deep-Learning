@@ -11,19 +11,79 @@ import torch.optim as optim
 import torch.nn as nn
 import sys
 import argparse
+from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR
+import random
 
-def create_data_loader(data_path, batch_size):
+def create_data_loader(data_path, batch_size, train=False, num_augmentation=0):
     # define mean and std for normalizing the dataset
     cinic_mean = [0.47889522, 0.47227842, 0.43047404]
     cinic_std = [0.24205776, 0.23828046, 0.25874835]
 
+    train_transform = transforms.Compose([
+        # transforms.RandomResizedCrop(32, scale=(0.8, 1.0)),
+        # transforms.RandomHorizontalFlip(),
+        # transforms.RandomRotation(15),
+        # transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+        transforms.ToTensor(),
+        transforms.Normalize(cinic_mean, cinic_std),
+        # transforms.RandomErasing(p=0.1, scale=(0.02, 0.1), value='random')
+    ])
+
+    if num_augmentation == 1:
+        train_transform = transforms.Compose([
+            # transforms.RandomResizedCrop(32, scale=(0.8, 1.0)),
+            transforms.RandomHorizontalFlip(),
+            # transforms.RandomRotation(15),
+            # transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+            transforms.ToTensor(),
+            transforms.Normalize(cinic_mean, cinic_std),
+            # transforms.RandomErasing(p=0.1, scale=(0.02, 0.1), value='random')
+        ])
+    
+    if num_augmentation == 2:
+        train_transform = transforms.Compose([
+            # transforms.RandomResizedCrop(32, scale=(0.8, 1.0)),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomRotation(15),
+            # transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+            transforms.ToTensor(),
+            transforms.Normalize(cinic_mean, cinic_std),
+            # transforms.RandomErasing(p=0.1, scale=(0.02, 0.1), value='random')
+        ])
+
+    if num_augmentation == 3:
+        train_transform = transforms.Compose([
+            # transforms.RandomResizedCrop(32, scale=(0.8, 1.0)),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomRotation(15),
+            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+            transforms.ToTensor(),
+            transforms.Normalize(cinic_mean, cinic_std),
+            # transforms.RandomErasing(p=0.1, scale=(0.02, 0.1), value='random')
+        ])
+    
+    if num_augmentation == 4:
+        train_transform = transforms.Compose([
+            # transforms.RandomResizedCrop(32, scale=(0.8, 1.0)),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomRotation(15),
+            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+            transforms.ToTensor(),
+            transforms.Normalize(cinic_mean, cinic_std),
+            transforms.RandomErasing(p=0.1, scale=(0.02, 0.1), value='random')
+        ])
+
+    test_transform = transforms.Compose([
+                    transforms.ToTensor(),
+                    transforms.Normalize(mean=cinic_mean, std=cinic_std)
+                ])
+    
+    chosen_transform = train_transform if train else test_transform
+
     # define standard data loaders
     data_loader = torch.utils.data.DataLoader(
             torchvision.datasets.ImageFolder(data_path,
-                transform=transforms.Compose([
-                    transforms.ToTensor(),
-                    transforms.Normalize(mean=cinic_mean, std=cinic_std)
-                ])),
+                transform=chosen_transform),
             batch_size=batch_size,
             shuffle=True
         )
@@ -36,34 +96,46 @@ def parse_arguments():
 
     parser.add_argument('--epochs', type=int, default=5)
     parser.add_argument('--lr', type=float, default=0.001, help='learning rate')
-    parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--output_folder', type=str, default='output')
-    parser.add_argument('--weight_decay', type=float, default=0.0)
+    parser.add_argument('--weight_decay', type=float, default=5e-4)
+    parser.add_argument('--momentum', type=float, default=0.9)
+    parser.add_argument('--random_seed', type=int, default=0)
 
     args = parser.parse_args()
     return args
 
+def set_random_seed(random_seed):
+    np.random.seed(random_seed)
+    torch.manual_seed(random_seed)
+    random.seed(random_seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
-def train_resnet18(num_epochs, learning_rate, batch_size, output_folder, weight_decay):
+def train_resnet18(num_epochs, learning_rate, batch_size, momentum, 
+                   weight_decay, random_seed, output_folder, label_smoothing=0.0, num_augmentation=0):
+    set_random_seed(random_seed=random_seed)
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     train_path = get_train_dataset_path()
     test_path = get_test_dataset_path()
-    train_dl = create_data_loader(train_path, batch_size)
+    train_dl = create_data_loader(train_path, batch_size, train=True, num_augmentation=num_augmentation)
     test_dl = create_data_loader(test_path, batch_size)
 
     resnet18 = models.resnet18(weights=None).to(device)
     resnet18.fc = nn.Linear(resnet18.fc.in_features, 10)
     resnet18 = resnet18.to(device)
 
-    criterion = nn.CrossEntropyLoss()
-    # optimizer = optim.Adam(resnet18.parameters(), lr=learning_rate, weight_decay=weight_decay)
-    optimizer = optim.SGD(resnet18.parameters(), lr=learning_rate,
-                      momentum=0.9, weight_decay=weight_decay)
+    criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
+    
+    optimizer = torch.optim.SGD(resnet18.parameters(),
+                            lr=learning_rate,
+                            momentum=momentum,
+                            weight_decay=weight_decay)
 
     metric_data = []
 
     for epoch in range(num_epochs):
-        running_loss = 0.0
         total_train_loss = 0.0
 
         for i, data in enumerate(train_dl, 0):
@@ -77,12 +149,7 @@ def train_resnet18(num_epochs, learning_rate, batch_size, output_folder, weight_
             loss.backward()
             optimizer.step()
 
-            running_loss += loss.item()
             total_train_loss += loss.item()
-
-            if i % 25 == 24:
-                # print(f'[{epoch + 1}, {i + 1:5d} / {len(train_dl)}] loss: {running_loss / 25:.3f}')
-                running_loss = 0.0
 
         avg_train_loss = total_train_loss / len(train_dl)
         print(f'Epoch {epoch + 1}, Training Loss: {avg_train_loss:.3f}')
@@ -116,7 +183,7 @@ def train_resnet18(num_epochs, learning_rate, batch_size, output_folder, weight_
         metrics['test_accuracy'] = test_accuracy
         metric_data.append(metrics)
 
-    out_file_path = os.path.join(output_folder, f'resnet18_e{epoch}_lr{learning_rate}_bs{batch_size}_wd{weight_decay}.csv')
+    out_file_path = os.path.join(output_folder, f'resnet18_e{epoch}_lr{learning_rate}_bs{batch_size}_momentum{momentum}_wd{weight_decay}_ls{label_smoothing}_aug{num_augmentation}_seed{random_seed}.csv')
     df_metric_data = pd.DataFrame(metric_data)
     df_metric_data.to_csv(out_file_path, index=False)
     print('Finished Training')
@@ -129,7 +196,15 @@ def main():
     batch_size = args.batch_size
     output_folder = args.output_folder
     weight_decay = args.weight_decay
-    train_resnet18(num_epochs, learning_rate, batch_size, output_folder, weight_decay)
+    momentum=args.momentum
+    random_seed = args.random_seed
+    train_resnet18(num_epochs=num_epochs,
+                   learning_rate=learning_rate,
+                   batch_size=batch_size,
+                   output_folder=output_folder,
+                   weight_decay=weight_decay,
+                   momentum=momentum,
+                   random_seed=random_seed)
 
 
 if __name__ == '__main__':
