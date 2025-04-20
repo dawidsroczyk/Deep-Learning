@@ -93,8 +93,8 @@ def train_ast(num_epochs, num_classes, lr, weight_decay, best_model_path, data_p
         train_preds = []
         train_labels = []
         total_loss = 0
-        for seq, labels in train_dataloader:
-            seq, labels = seq.to(device), labels.to(device)
+        for idx, (seq, labels) in enumerate(train_dataloader):
+            print(f'{idx} / {len(train_dataloader)}')
             optimizer.zero_grad()
             logits = model(seq)
             loss = criterion(logits, labels)
