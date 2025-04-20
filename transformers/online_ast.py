@@ -72,7 +72,7 @@ def load_dataset(pt_path):
     test_dataloader = DataLoader(test_dataset, batch_size=1)
     return train_dataloader, test_dataloader
 
-def train_ast(num_epochs, num_classes, lr, weight_decay, best_model_path, data_path, random_seed):
+def train_ast(num_epochs, num_classes, lr, weight_decay, best_model_path, data_path, random_seed, confusion_matrices_path):
     random.seed(random_seed)
     np.random.seed(random_seed)
     torch.manual_seed(random_seed)
@@ -84,8 +84,6 @@ def train_ast(num_epochs, num_classes, lr, weight_decay, best_model_path, data_p
     model = AST(num_classes=num_classes).to(device)
     optimizer = AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     criterion = nn.CrossEntropyLoss()
-    train_conf_matrices = []
-    test_conf_matrices = []
     best_test_acc = 0.0
 
     for epoch in range(num_epochs):
@@ -109,7 +107,6 @@ def train_ast(num_epochs, num_classes, lr, weight_decay, best_model_path, data_p
 
         train_acc = accuracy_score(train_labels, train_preds)
         train_conf = confusion_matrix(train_labels, train_preds)
-        train_conf_matrices.append(train_conf.tolist())
 
         model.eval()
         test_preds = []
@@ -124,7 +121,6 @@ def train_ast(num_epochs, num_classes, lr, weight_decay, best_model_path, data_p
 
         test_acc = accuracy_score(test_labels, test_preds)
         test_conf = confusion_matrix(test_labels, test_preds)
-        test_conf_matrices.append(test_conf.tolist())
 
         if test_acc > best_test_acc:
             best_test_acc = test_acc
@@ -138,14 +134,14 @@ def train_ast(num_epochs, num_classes, lr, weight_decay, best_model_path, data_p
         print("Test Confusion Matrix:\n", test_conf)
         print("-" * 50)
 
-    conf_data = {
-        "train_confusion_matrices": train_conf_matrices,
-        "test_confusion_matrices": test_conf_matrices
-    }
+        conf_data = {
+            "train_confusion_matrix": train_conf.tolist(),
+            "test_confusion_matrix": test_conf.tolist()
+        }
 
-    with open("confusion_matrices.json", "w") as f:
-        json.dump(conf_data, f, indent=4)
+        with open(f"{confusion_matrices_path}/epoch_{epoch+1}_confusion_matrices.json", "w") as f:
+            json.dump(conf_data, f, indent=4)
 
-    print("✅ Training complete. Confusion matrices saved to confusion_matrices.json.")
+    print("✅ Training complete.")
     print(f"🏅 Best model saved as {best_model_path} with accuracy {best_test_acc:.4f}")
 
