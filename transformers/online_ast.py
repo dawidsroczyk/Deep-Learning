@@ -10,6 +10,7 @@ from sklearn.metrics import confusion_matrix, accuracy_score
 import numpy as np
 import json
 import random
+import os
 
 
 class PositionalEncoding(nn.Module):
@@ -72,7 +73,7 @@ def load_dataset(pt_path):
     test_dataloader = DataLoader(test_dataset, batch_size=1)
     return train_dataloader, test_dataloader
 
-def train_ast(num_epochs, num_classes, lr, weight_decay, best_model_path, data_path, random_seed, confusion_matrices_path):
+def train_ast(num_epochs, num_classes, lr, weight_decay, model_path, data_path, random_seed, confusion_matrices_path):
     random.seed(random_seed)
     np.random.seed(random_seed)
     torch.manual_seed(random_seed)
@@ -122,10 +123,11 @@ def train_ast(num_epochs, num_classes, lr, weight_decay, best_model_path, data_p
         test_acc = accuracy_score(test_labels, test_preds)
         test_conf = confusion_matrix(test_labels, test_preds)
 
-        if test_acc > best_test_acc:
-            best_test_acc = test_acc
-            torch.save(model.state_dict(), best_model_path)
-            print(f"✔️ New best model saved with test accuracy: {test_acc:.4f}")
+        # if test_acc > best_test_acc:
+        #     best_test_acc = test_acc
+        #     torch.save(model.state_dict(), best_model_path)
+        #     print(f"✔️ New best model saved with test accuracy: {test_acc:.4f}")
+        torch.save(model.state_dict(), os.path.join(model_path, f'model_{epoch}.pt'))
 
         print(f"Epoch {epoch+1}/{num_epochs}")
         print(f"Train Loss: {total_loss:.4f} | Train Acc: {train_acc:.4f}")
