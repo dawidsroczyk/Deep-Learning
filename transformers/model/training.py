@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from tempfile import TemporaryDirectory
 import torch
 import pandas as pd
+import numpy as np
 
 def train_epoch(model, dataloader, criterion, optimizer, device, phase='train'):
 
@@ -151,9 +152,8 @@ def plot_training_history(train_loss, train_acc, val_loss, val_acc, title, folde
 def plot_combined_training_history(all_train_acc_hist, all_val_acc_hist,
                                    all_train_loss_hist, all_val_loss_hist,
                                    title, folder):
-    import numpy as np
-    import matplotlib.pyplot as plt
-    import os
+    
+    os.makedirs(folder, exist_ok=True)
 
     epochs = range(1, len(all_train_acc_hist[0]) + 1)
     num_runs = len(all_train_acc_hist)
