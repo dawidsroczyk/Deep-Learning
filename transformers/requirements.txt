@@ -1,0 +1,8 @@
+py7zr
+soundfile
+torchaudio
+scikit-learn
+librosa
+torch
+torchvision
+seaborn
