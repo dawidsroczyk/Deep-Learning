@@ -73,7 +73,7 @@ def load_dataset(train_path, test_path):
     test_dataloader = DataLoader(test_dataset, batch_size=1)
     return train_dataloader, test_dataloader
 
-def train_ast(num_epochs, num_classes, lr, weight_decay, model_path, data_path, random_seed, confusion_matrices_path):
+def train_ast(num_epochs, num_classes, lr, weight_decay, model_path, train_data_path, test_data_path, random_seed, confusion_matrices_path):
     random.seed(random_seed)
     np.random.seed(random_seed)
     torch.manual_seed(random_seed)
@@ -81,7 +81,7 @@ def train_ast(num_epochs, num_classes, lr, weight_decay, model_path, data_path, 
         torch.cuda.manual_seed_all(random_seed)
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    train_dataloader, test_dataloader = load_dataset(data_path)
+    train_dataloader, test_dataloader = load_dataset(train_data_path, test_data_path)
     model = AST(num_classes=num_classes).to(device)
     optimizer = AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     criterion = nn.CrossEntropyLoss()
