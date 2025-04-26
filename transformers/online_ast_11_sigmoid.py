@@ -88,7 +88,7 @@ def load_dataset(train_path, test_path):
 
 def load_unknown_dataset(unknown_path):
     unknown_data = torch.load(unknown_path)
-    unknown_dataset = DictDataset(unknown_data)
+    unknown_dataset = DictDataset(unknown_data, {'unknown': 0})
     unknown_dataloader = DataLoader(unknown_dataset, batch_size=1)
     return unknown_dataloader
 
