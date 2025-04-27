@@ -121,10 +121,11 @@ def evaluate_with_unknown(model, test_dataloader, unknown_dataloader, device, nu
                                   preds).cpu().numpy()
                 preds = preds.tolist()
                 
-        all_preds.extend([x[0] for x in preds])
+        all_preds.extend(preds)
         all_true_labels.extend(labels.cpu().numpy().tolist())
     
     print(all_preds)
+    print(all_true_labels)
 
     # Process unknown samples
     for seq, _ in unknown_dataloader:
@@ -144,6 +145,7 @@ def evaluate_with_unknown(model, test_dataloader, unknown_dataloader, device, nu
         all_preds.extend(preds)
         all_true_labels.extend([num_classes] * len(seq))
     
+    print(all_true_labels)
     print(all_true_labels)
 
     # Ensure all labels are within expected range
