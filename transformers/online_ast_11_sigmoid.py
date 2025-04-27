@@ -123,6 +123,8 @@ def evaluate_with_unknown(model, test_dataloader, unknown_dataloader, device, nu
                 
         all_preds.extend(preds)
         all_true_labels.extend(labels.cpu().numpy())
+    
+    print(all_preds)
 
     # Process unknown samples
     for seq, _ in unknown_dataloader:
@@ -138,9 +140,11 @@ def evaluate_with_unknown(model, test_dataloader, unknown_dataloader, device, nu
                 preds = np.where(preds == 1, num_classes, 
                                 torch.argmax(logits, dim=1).cpu().numpy())
                 preds = preds.tolist()
-                
+
         all_true_labels.extend([num_classes] * len(seq))
         all_preds.extend(preds)
+    
+    print(all_true_labels)
 
     # Ensure all labels are within expected range
     unique_labels = set(all_true_labels + all_preds)
