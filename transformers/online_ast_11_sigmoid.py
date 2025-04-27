@@ -12,6 +12,7 @@ import json
 import random
 import os
 import torch.nn.functional as F
+from torch.utils.data import random_split
 
 
 class PositionalEncoding(nn.Module):
@@ -82,16 +83,23 @@ def load_dataset(train_path, test_path):
     print(class_to_idx)
     train_dataset = DictDataset(train_data, class_to_idx)
     test_dataset = DictDataset(test_data, class_to_idx)
-    train_dataloader = DataLoader(train_dataset, batch_size=1, shuffle=True)
-    test_dataloader = DataLoader(test_dataset, batch_size=1)
+    # train_dataloader = DataLoader(train_dataset, batch_size=1, shuffle=True)
+    # test_dataloader = DataLoader(test_dataset, batch_size=1)
+    train_dataloader = DataLoader(train_dataset, batch_size=1, shuffle=True, pin_memory=True, num_workers=4)
+    test_dataloader = DataLoader(test_dataset, batch_size=1, pin_memory=True, num_workers=4)
     return train_dataloader, test_dataloader
 
-def load_unknown_dataset(unknown_path):
+def load_unknown_dataset(unknown_path, max_elems: int = None):
     unknown_data = torch.load(unknown_path)
     unknown_dataset = DictDataset(unknown_data, {'unknown': 0})
-    unknown_dataloader = DataLoader(unknown_dataset, batch_size=1)
+    if max_elems is not None and max_elems < len(unknown_dataset):
+        # unknown_dataset = unknown_dataset[:max_elems]
+        total_size = len(unknown_dataset)
+        unknown_dataset, _ = random_split(unknown_dataset, [max_elems, total_size-max_elems])
+    unknown_dataloader = DataLoader(unknown_dataset, batch_size=1, shuffle=True, pin_memory=True, num_workers=4)
     return unknown_dataloader
 
+@torch.no_grad()
 def evaluate_with_unknown(model, test_dataloader, unknown_dataloader, device, num_classes, threshold=0.5):
     model.eval()
     all_preds = []
@@ -161,19 +169,24 @@ def train_ast(num_epochs, num_classes, lr, weight_decay, model_path,
     criterion = nn.BCEWithLogitsLoss()
     best_test_acc = 0.0
 
+    scaler = torch.cuda.amp.GradScaler() 
     for epoch in range(num_epochs):
         model.train()
         train_preds = []
         train_labels = []
         total_loss = 0
+
         for idx, (seq, labels) in enumerate(train_dataloader):
             if idx % 1000 == 0:
                 print(f'{idx} / {len(train_dataloader)}')
             seq, labels = seq.to(device), labels.to(device)
             one_hot_labels = F.one_hot(labels, num_classes=num_classes).float()
             optimizer.zero_grad()
-            logits = model(seq)
-            loss = criterion(logits, one_hot_labels)
+
+            with torch.amp.autocast(device_type='cuda', dtype=torch.float16):
+                logits = model(seq)
+                loss = criterion(logits, one_hot_labels)
+
             loss.backward()
             optimizer.step()
             total_loss += loss.item()
