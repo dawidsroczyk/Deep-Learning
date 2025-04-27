@@ -225,7 +225,7 @@ def train_ast(num_epochs, num_classes, lr, weight_decay, model_path,
             if idx % 1000 == 0:
                 print(f'{idx} / {len(train_dataloader)}')
             seq, labels = seq.to(device), labels.to(device)
-            one_hot_labels = F.one_hot(labels, num_classes=num_classes).float()
+            one_hot_labels = F.one_hot(labels, num_classes=num_classes).float().squeeze(1)
             optimizer.zero_grad()
 
             with torch.amp.autocast(device_type='cuda', dtype=torch.float16):
