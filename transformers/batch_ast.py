@@ -114,7 +114,7 @@ def train_ast(num_epochs, num_classes, lr, weight_decay, model_path, train_data_
         train_labels = []
         total_loss = 0
         for idx, (seq, labels) in enumerate(train_dataloader):
-            if idx % 1000 == 0:
+            if idx % 100 == 0:
                 print(f'{idx} / {len(train_dataloader)}')
             seq, labels = seq.to(device), labels.to(device)
             optimizer.zero_grad()
