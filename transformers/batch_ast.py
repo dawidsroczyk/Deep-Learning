@@ -107,6 +107,7 @@ def train_ast(num_epochs, num_classes, lr, weight_decay, model_path, train_data_
     criterion = nn.CrossEntropyLoss()
     best_test_acc = 0.0
 
+    scaler = torch.cuda.amp.GradScaler()
     for epoch in range(num_epochs):
         model.train()
         train_preds = []
@@ -117,10 +118,18 @@ def train_ast(num_epochs, num_classes, lr, weight_decay, model_path, train_data_
                 print(f'{idx} / {len(train_dataloader)}')
             seq, labels = seq.to(device), labels.to(device)
             optimizer.zero_grad()
-            logits = model(seq)
-            loss = criterion(logits, labels)
-            loss.backward()
-            optimizer.step()
+
+            with torch.amp.autocast(device_type='cuda', dtype=torch.float16):
+                logits = model(seq)
+                loss = criterion(logits, labels)
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+
+            # loss = criterion(logits, labels)
+            # loss.backward()
+            # optimizer.step()
+
             total_loss += loss.item()
             preds = torch.argmax(logits, dim=1).detach().cpu().numpy()
             train_preds.extend(preds)
@@ -135,7 +144,8 @@ def train_ast(num_epochs, num_classes, lr, weight_decay, model_path, train_data_
         with torch.no_grad():
             for seq, labels in test_dataloader:
                 seq, labels = seq.to(device), labels.to(device)
-                logits = model(seq)
+                with torch.amp.autocast(device_type='cuda', dtype=torch.float16):
+                    logits = model(seq)
                 preds = torch.argmax(logits, dim=1).cpu().numpy()
                 test_preds.extend(preds)
                 test_labels.extend(labels.cpu().numpy())
