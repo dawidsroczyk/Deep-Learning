@@ -121,7 +121,7 @@ def evaluate_with_unknown(model, test_dataloader, unknown_dataloader, device, nu
                                   preds).cpu().numpy()
                 preds = preds.tolist()
                 
-        all_preds.extend(preds)
+        all_preds.extend([x[0] for x in preds])
         all_true_labels.extend(labels.cpu().numpy().tolist())
     
     print(all_preds)
