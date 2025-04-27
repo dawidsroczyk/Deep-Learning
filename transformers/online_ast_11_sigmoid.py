@@ -122,7 +122,7 @@ def evaluate_with_unknown(model, test_dataloader, unknown_dataloader, device, nu
                 preds = preds.tolist()
                 
         all_preds.extend(preds)
-        all_true_labels.extend(labels.cpu().numpy().tolist())
+        all_true_labels.extend(labels.cpu().numpy().reshape((-1)).tolist())
     
     print(all_preds)
     print(all_true_labels)
@@ -142,8 +142,8 @@ def evaluate_with_unknown(model, test_dataloader, unknown_dataloader, device, nu
                                 torch.argmax(logits, dim=1).cpu().numpy())
                 preds = preds.tolist()
 
-        all_preds.extend(preds)
-        all_true_labels.extend([num_classes] * len(seq))
+        all_preds.extend(np.array(preds).reshape((-1)).tolist())
+        all_true_labels.extend(np.array([num_classes] * len(seq)).reshape((-1)).tolist())
     
     print(all_true_labels)
     print(all_true_labels)
