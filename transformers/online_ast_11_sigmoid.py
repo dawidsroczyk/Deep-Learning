@@ -113,7 +113,7 @@ def evaluate_with_unknown(model, test_dataloader, unknown_dataloader, device, nu
             with torch.amp.autocast(device_type='cuda', dtype=torch.float16):
                 logits = model(seq)
                 probs = torch.sigmoid(logits)
-                max_probs, preds = torch.max(probs)
+                max_probs, preds = torch.max(probs, dim=1)
                 
                 # Convert to numpy while preserving device sync
                 preds = torch.where(max_probs < threshold, 
