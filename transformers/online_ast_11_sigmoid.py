@@ -105,54 +105,53 @@ def evaluate_with_unknown(model, test_dataloader, unknown_dataloader, device, nu
     all_preds = []
     all_true_labels = []
     
-    # First process known classes
+    # Process test samples (known classes)
     for seq, labels in test_dataloader:
         seq, labels = seq.to(device), labels.to(device)
         
-        # Get predictions
-        with torch.amp.autocast(device_type='cuda', dtype=torch.float16):
-            logits = model(seq)
-            probs = torch.softmax(logits, dim=1)
-            max_probs, preds = torch.max(probs, dim=1)
-            
-            # Mark predictions as unknown if confidence is low
-            preds = torch.where(max_probs < threshold, 
-                              torch.tensor(num_classes, device=device),
-                              preds)
-        
-        all_preds.extend(preds.cpu().numpy())
+        with torch.no_grad():
+            with torch.amp.autocast(device_type='cuda', dtype=torch.float16):
+                logits = model(seq)
+                probs = torch.softmax(logits, dim=1)
+                max_probs, preds = torch.max(probs, dim=1)
+                
+                # Convert to numpy while preserving device sync
+                preds = torch.where(max_probs < threshold, 
+                                  num_classes, 
+                                  preds).cpu().numpy()
+                
+        all_preds.extend(preds)
         all_true_labels.extend(labels.cpu().numpy())
-    
-    # Then process unknown samples
+
+    # Process unknown samples
     for seq, _ in unknown_dataloader:
         seq = seq.to(device)
         
-        with torch.amp.autocast(device_type='cuda', dtype=torch.float16):
-            logits = model(seq)
-            probs = torch.softmax(logits, dim=1)
-            max_probs, preds = torch.max(probs, dim=1)
-            
-            # True label is unknown (num_classes)
-            true_labels = torch.full((len(seq),), num_classes, device=device)
-            
-            # Predictions
-            preds = torch.where(max_probs < threshold,
-                              torch.tensor(num_classes, device=device),
-                              preds)
-        
-        all_preds.extend(preds.cpu().numpy())
-        all_true_labels.extend(true_labels.cpu().numpy())
-    
-    # Generate confusion matrix
+        with torch.no_grad():
+            with torch.amp.autocast(device_type='cuda', dtype=torch.float16):
+                logits = model(seq)
+                probs = torch.softmax(logits, dim=1)
+                max_probs = probs.max(dim=1).values
+                
+                preds = (max_probs < threshold).int().cpu().numpy()
+                preds = np.where(preds == 1, num_classes, 
+                                torch.argmax(logits, dim=1).cpu().numpy())
+                
+        all_true_labels.extend([num_classes] * len(seq))
+        all_preds.extend(preds)
+
+    # Ensure all labels are within expected range
+    unique_labels = set(all_true_labels + all_preds)
+    assert all(0 <= label <= num_classes for label in unique_labels), \
+           f"Invalid labels detected: {unique_labels}"
+
     conf_matrix = confusion_matrix(
         all_true_labels,
         all_preds,
-        labels=list(range(num_classes + 1))  # Include unknown class
+        labels=list(range(num_classes + 1))
     )
-
-    accuracy = accuracy_score(all_true_labels, all_preds)
     
-    return conf_matrix, accuracy
+    return conf_matrix, accuracy_score(all_true_labels, all_preds)
 
 
 def pad_dataloaders(dataloaders: list, batch_size: int):
