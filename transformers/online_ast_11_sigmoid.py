@@ -119,6 +119,7 @@ def evaluate_with_unknown(model, test_dataloader, unknown_dataloader, device, nu
                 preds = torch.where(max_probs < threshold, 
                                   num_classes, 
                                   preds).cpu().numpy()
+                preds = preds.tolist()
                 
         all_preds.extend(preds)
         all_true_labels.extend(labels.cpu().numpy())
@@ -136,6 +137,7 @@ def evaluate_with_unknown(model, test_dataloader, unknown_dataloader, device, nu
                 preds = (max_probs < threshold).int().cpu().numpy()
                 preds = np.where(preds == 1, num_classes, 
                                 torch.argmax(logits, dim=1).cpu().numpy())
+                preds = preds.tolist()
                 
         all_true_labels.extend([num_classes] * len(seq))
         all_preds.extend(preds)
