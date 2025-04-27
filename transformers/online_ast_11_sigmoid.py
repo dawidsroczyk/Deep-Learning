@@ -112,7 +112,7 @@ def evaluate_with_unknown(model, test_dataloader, unknown_dataloader, device, nu
         with torch.no_grad():
             with torch.amp.autocast(device_type='cuda', dtype=torch.float16):
                 logits = model(seq)
-                probs = torch.softmax(logits, dim=1)
+                probs = torch.sigmoid(logits, dim=1)
                 max_probs, preds = torch.max(probs, dim=1)
                 
                 # Convert to numpy while preserving device sync
@@ -122,7 +122,7 @@ def evaluate_with_unknown(model, test_dataloader, unknown_dataloader, device, nu
                 preds = preds.tolist()
                 
         all_preds.extend(preds)
-        all_true_labels.extend(labels.cpu().numpy())
+        all_true_labels.extend(labels.cpu().numpy().tolist())
     
     print(all_preds)
 
@@ -133,7 +133,7 @@ def evaluate_with_unknown(model, test_dataloader, unknown_dataloader, device, nu
         with torch.no_grad():
             with torch.amp.autocast(device_type='cuda', dtype=torch.float16):
                 logits = model(seq)
-                probs = torch.softmax(logits, dim=1)
+                probs = torch.sigmoid(logits, dim=1)
                 max_probs = probs.max(dim=1).values
                 
                 preds = (max_probs < threshold).int().cpu().numpy()
@@ -141,8 +141,8 @@ def evaluate_with_unknown(model, test_dataloader, unknown_dataloader, device, nu
                                 torch.argmax(logits, dim=1).cpu().numpy())
                 preds = preds.tolist()
 
-        all_true_labels.extend([num_classes] * len(seq))
         all_preds.extend(preds)
+        all_true_labels.extend([num_classes] * len(seq))
     
     print(all_true_labels)
 
