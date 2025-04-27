@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import math
 from torch.autograd import Variable
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, TensorDataset
 from torch.nn.utils.rnn import pad_sequence
 from torch.optim import AdamW
 from torch.utils.data import random_split
@@ -114,7 +114,8 @@ def evaluate_with_unknown(model, test_dataloader, unknown_dataloader, device, nu
             is_unknown_arr = model.check_unknown(seq, threshold)
             
             # Stage 2: Classification for non-unknown samples
-            logits = model(seq)
+            with torch.amp.autocast(device_type='cuda', dtype=torch.float16):
+                logits = model(seq)
             class_preds = torch.argmax(logits, dim=1).cpu().numpy()
             
             # Combine results (use num_classes where unknown)
@@ -152,9 +153,50 @@ def evaluate_with_unknown(model, test_dataloader, unknown_dataloader, device, nu
     
     return conf_matrix, accuracy
 
+
+def pad_dataloaders(dataloaders: list, batch_size: int):
+    # Step 1: Collect all sequences from all dataloaders to find max length
+    all_sequences = []
+    for dataloader in dataloaders:
+        for batch in dataloader:
+            # Remove batch dim (original batch_size=1) to get [seq_len, 256]
+            sequence = batch[0].squeeze(0)
+            all_sequences.append(sequence)
+    
+    max_len = max(seq.size(0) for seq in all_sequences)  # Find max seq length
+    
+    # Step 2: Process each original dataloader separately
+    padded_dataloaders = []
+    for dataloader in dataloaders:
+        sequences = []
+        labels = []
+        for batch in dataloader:
+            sequence = batch[0].squeeze(0)  # [seq_len, 256]
+            sequences.append(sequence)
+            labels.append(batch[1])
+        
+        # Pad sequences in this dataloader to max_len
+        padded_sequences = pad_sequence(
+            sequences,
+            batch_first=True,
+            padding_value=0
+        )  # [num_sequences, max_len, 256]
+        labels = torch.stack(labels)
+        
+        # Create new DataLoader with desired batch_size
+        dataset = TensorDataset(padded_sequences, labels)
+        new_dataloader = DataLoader(
+            dataset,
+            batch_size=batch_size,
+            shuffle=False  # Preserve original order (or set True if needed)
+        )
+        padded_dataloaders.append(new_dataloader)
+    
+    return tuple(padded_dataloaders)
+
 def train_ast(num_epochs, num_classes, lr, weight_decay, model_path, 
               train_data_path, test_data_path, unknown_data_path, random_seed, confusion_matrices_path,
-              unknown_threshold):
+              unknown_threshold, batch_size):
     random.seed(random_seed)
     np.random.seed(random_seed)
     torch.manual_seed(random_seed)
@@ -162,8 +204,11 @@ def train_ast(num_epochs, num_classes, lr, weight_decay, model_path,
         torch.cuda.manual_seed_all(random_seed)
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     train_dataloader, test_dataloader = load_dataset(train_data_path, test_data_path)
     unknown_dataloader = load_unknown_dataset(unknown_data_path)
+    train_dataloader, test_dataloader, unknown_dataloader = pad_dataloaders([train_dataloader, test_dataloader, unknown_dataloader], batch_size)
+
     model = AST(num_classes=num_classes).to(device)
     optimizer = AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     criterion = nn.BCEWithLogitsLoss()
