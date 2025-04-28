@@ -12,7 +12,6 @@ import json
 import random
 import os
 
-
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, dropout, max_len=5000):
         super(PositionalEncoding, self).__init__()
@@ -68,16 +67,29 @@ def collate_fn(batch):
     padded_sequences = pad_sequence(sequences, batch_first=True, padding_value=0)    
     return padded_sequences, labels
 
-def load_dataset(train_path, test_path, batch_size):
+def load_dataset(train_path, test_path, unknown_path, batch_size):
     train_data = torch.load(train_path)
     test_data = torch.load(test_path)
+    unknown_data = torch.load(unknown_path)
+    
     class_to_idx = dict([(key, idx) for idx, key in enumerate(train_data.keys())])
-    print(class_to_idx)
+    class_to_idx['unknown'] = len(class_to_idx)
+    num_classes = len(class_to_idx)
+    
     train_dataset = DictDataset(train_data, class_to_idx)
     test_dataset = DictDataset(test_data, class_to_idx)
+    unknown_dataset = DictDataset(unknown_data, class_to_idx)
+    
+    unknown_train_size = int(0.8 * len(unknown_dataset))
+    unknown_test_size = len(unknown_dataset) - unknown_train_size
+    unknown_train, unknown_test = random_split(unknown_dataset, [unknown_train_size, unknown_test_size])
+    
+    from torch.utils.data import ConcatDataset
+    combined_train = ConcatDataset([train_dataset, unknown_train])
+    combined_test = ConcatDataset([test_dataset, unknown_test])
     
     train_dataloader = DataLoader(
-        train_dataset, 
+        combined_train, 
         batch_size=batch_size, 
         shuffle=True, 
         pin_memory=True, 
@@ -85,15 +97,15 @@ def load_dataset(train_path, test_path, batch_size):
         collate_fn=collate_fn
     )
     test_dataloader = DataLoader(
-        test_dataset, 
+        combined_test, 
         batch_size=batch_size, 
         pin_memory=True, 
         num_workers=4,
         collate_fn=collate_fn
     )
-    return train_dataloader, test_dataloader
+    return train_dataloader, test_dataloader, num_classes, class_to_idx
 
-def train_ast(num_epochs, num_classes, lr, weight_decay, model_path, train_data_path, test_data_path, random_seed, confusion_matrices_path, batch_size):
+def train_ast(num_epochs, lr, weight_decay, model_path, train_data_path, test_data_path, unknown_data_path, random_seed, confusion_matrices_path, batch_size):
     random.seed(random_seed)
     np.random.seed(random_seed)
     torch.manual_seed(random_seed)
@@ -101,7 +113,7 @@ def train_ast(num_epochs, num_classes, lr, weight_decay, model_path, train_data_
         torch.cuda.manual_seed_all(random_seed)
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    train_dataloader, test_dataloader = load_dataset(train_data_path, test_data_path, batch_size)
+    train_dataloader, test_dataloader, num_classes, class_to_idx = load_dataset(train_data_path, test_data_path, unknown_data_path, batch_size)
     model = AST(num_classes=num_classes).to(device)
     optimizer = AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     criterion = nn.CrossEntropyLoss()
@@ -125,10 +137,6 @@ def train_ast(num_epochs, num_classes, lr, weight_decay, model_path, train_data_
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
-
-            # loss = criterion(logits, labels)
-            # loss.backward()
-            # optimizer.step()
 
             total_loss += loss.item()
             preds = torch.argmax(logits, dim=1).detach().cpu().numpy()
