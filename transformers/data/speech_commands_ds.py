@@ -23,13 +23,13 @@ class SpeechCommandsDataset(Dataset):
         self.valid_labels = {'yes', 'no', 'up', 'down', 'left', 'right', 
                             'on', 'off', 'stop', 'go'}
         if not vsu:
-            self.class_to_idx = {label: i for i, label in enumerate(sorted(self.valid_labels))}
+            labels = {'yes', 'no', 'up', 'down', 'left', 'right', 
+                            'on', 'off', 'stop', 'go', 'silence'}
+            self.class_to_idx = {label: i for i, label in enumerate(sorted(labels))}
+            self.class_to_idx['unknown'] = len(self.class_to_idx)  # Add unknown class
         else:
-            self.class_to_idx = {'valid': 0}
-            
-        self.class_to_idx['silence'] = len(self.class_to_idx)  # Add silence class
-        self.class_to_idx['unknown'] = len(self.class_to_idx)  # Add unknown class
-        
+            self.class_to_idx = {'valid': 0, 'silence': 1, 'unknown': 2}
+                    
         # Load and filter files
         self.samples = []
         with open(os.path.join(root_dir, file_list_path), 'r') as f:
