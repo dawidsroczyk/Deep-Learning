@@ -3,13 +3,14 @@ import torchaudio
 import os
 
 class SpeechCommandsDataset(Dataset):
-    def __init__(self, root_dir, file_list_path, mode='1d', 
+    def __init__(self, root_dir, file_list_path, mode='1d', vsu=False,
                  preprocessor=None, augment=False):
         """
         Args:
             root_dir: Root directory of dataset
             file_list_path: Path to file containing list of audio files (one per line)
             mode: '1d' or '2d'
+            vsu: if True only 'valid', 'silence' and 'unknown' classes
             preprocessor: AudioPreprocessor instance
             augment: Whether to apply data augmentation
         """
@@ -20,9 +21,14 @@ class SpeechCommandsDataset(Dataset):
         
         # Define label mapping as per paper
         self.valid_labels = {'yes', 'no', 'up', 'down', 'left', 'right', 
-                            'on', 'off', 'stop', 'go', 'silence'}
-        self.class_to_idx = {label: i for i, label in enumerate(sorted(self.valid_labels))}
-        self.class_to_idx['unknown'] = len(self.valid_labels)  # Add unknown class
+                            'on', 'off', 'stop', 'go'}
+        if not vsu:
+            self.class_to_idx = {label: i for i, label in enumerate(sorted(self.valid_labels))}
+        else:
+            self.class_to_idx = {'valid': 0}
+            
+        self.class_to_idx['silence'] = len(self.class_to_idx)  # Add silence class
+        self.class_to_idx['unknown'] = len(self.class_to_idx)  # Add unknown class
         
         # Load and filter files
         self.samples = []
@@ -35,9 +41,12 @@ class SpeechCommandsDataset(Dataset):
                 # Extract label from folder name
                 label = rel_path.split('/')[0]
                 
-                # Map to valid classes as per paper
-                if label not in self.valid_labels:
+                if label not in self.valid_labels and label != 'silence':
                     label = 'unknown'
+                
+                if label in self.valid_labels:
+                    if vsu:
+                        label = 'valid'
                 
                 full_path = os.path.join(os.path.join(root_dir, 'audio'), rel_path)
                 if os.path.exists(full_path):
