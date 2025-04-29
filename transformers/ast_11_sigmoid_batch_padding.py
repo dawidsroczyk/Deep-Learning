@@ -134,7 +134,6 @@ def evaluate_with_unknown(model, test_dataloader, unknown_dataloader, device, nu
     all_preds = []
     all_true_labels = []
     
-    # Process test samples (known classes)
     for seq, labels in test_dataloader:
         seq, labels = seq.to(device), labels.to(device)
         
@@ -144,7 +143,6 @@ def evaluate_with_unknown(model, test_dataloader, unknown_dataloader, device, nu
                 probs = torch.sigmoid(logits)
                 max_probs, preds = torch.max(probs, dim=1)
                 
-                # Convert to numpy while preserving device sync
                 preds = torch.where(max_probs < threshold, 
                                   num_classes, 
                                   preds).cpu().numpy()
@@ -153,7 +151,6 @@ def evaluate_with_unknown(model, test_dataloader, unknown_dataloader, device, nu
         all_preds.extend(preds)
         all_true_labels.extend(labels.cpu().numpy().reshape((-1)).tolist())
 
-    # Process unknown samples
     for seq, _ in unknown_dataloader:
         seq = seq.to(device)
         
@@ -171,7 +168,6 @@ def evaluate_with_unknown(model, test_dataloader, unknown_dataloader, device, nu
         all_preds.extend(np.array(preds).reshape((-1)).tolist())
         all_true_labels.extend(np.array([num_classes] * len(seq)).reshape((-1)).tolist())
 
-    # Ensure all labels are within expected range
     unique_labels = set(all_true_labels + all_preds)
     assert all(0 <= label <= num_classes for label in unique_labels), \
            f"Invalid labels detected: {unique_labels}"
@@ -253,4 +249,3 @@ def train_ast(num_epochs, num_classes, lr, weight_decay, model_path,
         with open(f"{confusion_matrices_path}/epoch_{epoch+1}_confusion_matrices.json", "w") as f:
             json.dump(conf_data, f, indent=4)
 
-    print("✅ Training complete.")

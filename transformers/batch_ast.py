@@ -177,5 +177,3 @@ def train_ast(num_epochs, lr, weight_decay, model_path, train_data_path, test_da
 
         with open(f"{confusion_matrices_path}/epoch_{epoch+1}_confusion_matrices.json", "w") as f:
             json.dump(conf_data, f, indent=4)
-
-    print("✅ Training complete.")
