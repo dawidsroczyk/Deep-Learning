@@ -1,0 +1,179 @@
+import torch
+import torch.nn as nn
+import math
+from torch.autograd import Variable
+from torch.utils.data import Dataset, DataLoader
+from torch.nn.utils.rnn import pad_sequence
+from torch.optim import AdamW
+from torch.utils.data import random_split
+from sklearn.metrics import confusion_matrix, accuracy_score
+import numpy as np
+import json
+import random
+import os
+
+class PositionalEncoding(nn.Module):
+    def __init__(self, d_model, dropout, max_len=5000):
+        super(PositionalEncoding, self).__init__()
+        self.dropout = nn.Dropout(p=dropout)
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2) * -(math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0)
+        self.register_buffer('pe', pe)
+    def forward(self, x):
+        x = x + Variable(self.pe[:, :x.size(1)], requires_grad=False)
+        return self.dropout(x)
+
+class AST(nn.Module):
+    def __init__(self, num_classes, model_dim=768, patch_dim=256, dropout=0.0):
+        super(AST, self).__init__()
+        self.projection = nn.Linear(patch_dim, model_dim)
+        self.positional_encoding = PositionalEncoding(model_dim, dropout)
+        encoder_layer = nn.TransformerEncoderLayer(d_model=model_dim, nhead=12, dim_feedforward=4*model_dim, dropout=dropout, activation="gelu")
+        self.encoder = nn.TransformerEncoder(encoder_layer, 6)
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, model_dim))
+        nn.init.normal_(self.cls_token, std=0.02)
+        self.linear = nn.Linear(model_dim, num_classes)
+    def forward(self, x):
+        x = self.projection(x)
+        B, N, D = x.shape
+        cls_tokens = self.cls_token.expand(B, 1, D)
+        x = torch.cat((cls_tokens, x), dim=1)
+        x = self.positional_encoding(x)
+        x = x.transpose(0, 1)
+        x = self.encoder(x)
+        cls_output = x[0]
+        logits = self.linear(cls_output)
+        return logits
+
+class DictDataset(Dataset):
+    def __init__(self, dic, class_to_idx):
+        self.data = []
+        self.labels = []
+        for key, data_key in dic.items():
+            self.data.extend(data_key)
+            self.labels.extend([class_to_idx[key]] * len(data_key))
+    def __len__(self):
+        return len(self.data)
+    def __getitem__(self, idx):
+        return self.data[idx], self.labels[idx]
+
+def collate_fn(batch):
+    sequences = [item[0] for item in batch]
+    labels = torch.tensor([item[1] for item in batch])
+    padded_sequences = pad_sequence(sequences, batch_first=True, padding_value=0)    
+    return padded_sequences, labels
+
+def load_dataset(train_path, test_path, unknown_path, batch_size):
+    train_data = torch.load(train_path)
+    test_data = torch.load(test_path)
+    unknown_data = torch.load(unknown_path)
+    
+    class_to_idx = dict([(key, idx) for idx, key in enumerate(train_data.keys())])
+    class_to_idx['unknown'] = len(class_to_idx)
+    num_classes = len(class_to_idx)
+    
+    train_dataset = DictDataset(train_data, class_to_idx)
+    test_dataset = DictDataset(test_data, class_to_idx)
+    unknown_dataset = DictDataset(unknown_data, class_to_idx)
+    
+    unknown_train_size = int(0.8 * len(unknown_dataset))
+    unknown_test_size = len(unknown_dataset) - unknown_train_size
+    unknown_train, unknown_test = random_split(unknown_dataset, [unknown_train_size, unknown_test_size])
+    
+    from torch.utils.data import ConcatDataset
+    combined_train = ConcatDataset([train_dataset, unknown_train])
+    combined_test = ConcatDataset([test_dataset, unknown_test])
+    
+    train_dataloader = DataLoader(
+        combined_train, 
+        batch_size=batch_size, 
+        shuffle=True, 
+        pin_memory=True, 
+        num_workers=4,
+        collate_fn=collate_fn
+    )
+    test_dataloader = DataLoader(
+        combined_test, 
+        batch_size=batch_size, 
+        pin_memory=True, 
+        num_workers=4,
+        collate_fn=collate_fn
+    )
+    return train_dataloader, test_dataloader, num_classes, class_to_idx
+
+def train_ast(num_epochs, lr, weight_decay, model_path, train_data_path, test_data_path, unknown_data_path, random_seed, confusion_matrices_path, batch_size):
+    random.seed(random_seed)
+    np.random.seed(random_seed)
+    torch.manual_seed(random_seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(random_seed)
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    train_dataloader, test_dataloader, num_classes, class_to_idx = load_dataset(train_data_path, test_data_path, unknown_data_path, batch_size)
+    model = AST(num_classes=num_classes).to(device)
+    optimizer = AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+    criterion = nn.CrossEntropyLoss()
+    best_test_acc = 0.0
+
+    scaler = torch.cuda.amp.GradScaler()
+    for epoch in range(num_epochs):
+        model.train()
+        train_preds = []
+        train_labels = []
+        total_loss = 0
+        for idx, (seq, labels) in enumerate(train_dataloader):
+            if idx % 100 == 0:
+                print(f'{idx} / {len(train_dataloader)}')
+            seq, labels = seq.to(device), labels.to(device)
+            optimizer.zero_grad()
+
+            with torch.amp.autocast(device_type='cuda', dtype=torch.float16):
+                logits = model(seq)
+                loss = criterion(logits, labels)
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+
+            total_loss += loss.item()
+            preds = torch.argmax(logits, dim=1).detach().cpu().numpy()
+            train_preds.extend(preds)
+            train_labels.extend(labels.cpu().numpy())
+
+        train_acc = accuracy_score(train_labels, train_preds)
+        train_conf = confusion_matrix(train_labels, train_preds)
+
+        model.eval()
+        test_preds = []
+        test_labels = []
+        with torch.no_grad():
+            for seq, labels in test_dataloader:
+                seq, labels = seq.to(device), labels.to(device)
+                with torch.amp.autocast(device_type='cuda', dtype=torch.float16):
+                    logits = model(seq)
+                preds = torch.argmax(logits, dim=1).cpu().numpy()
+                test_preds.extend(preds)
+                test_labels.extend(labels.cpu().numpy())
+
+        test_acc = accuracy_score(test_labels, test_preds)
+        test_conf = confusion_matrix(test_labels, test_preds)
+
+        torch.save(model.state_dict(), os.path.join(model_path, f'model_{epoch}.pt'))
+
+        print(f"Epoch {epoch+1}/{num_epochs}")
+        print(f"Train Loss: {total_loss:.4f} | Train Acc: {train_acc:.4f}")
+        print(f"Test Acc: {test_acc:.4f}")
+        print("Train Confusion Matrix:\n", train_conf)
+        print("Test Confusion Matrix:\n", test_conf)
+        print("-" * 50)
+
+        conf_data = {
+            "train_confusion_matrix": train_conf.tolist(),
+            "test_confusion_matrix": test_conf.tolist()
+        }
+
+        with open(f"{confusion_matrices_path}/epoch_{epoch+1}_confusion_matrices.json", "w") as f:
+            json.dump(conf_data, f, indent=4)
