@@ -1,3 +1,5 @@
+# reference: https://arxiv.org/abs/1810.02364
+
 import torch
 import torch.nn as nn
 

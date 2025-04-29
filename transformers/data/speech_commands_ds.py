@@ -19,26 +19,23 @@ class SpeechCommandsDataset(Dataset):
         self.preprocessor = preprocessor or AudioPreprocessor()
         self.augment = augment
         
-        # Define label mapping as per paper
         self.valid_labels = {'yes', 'no', 'up', 'down', 'left', 'right', 
                             'on', 'off', 'stop', 'go'}
         if not vsu:
             labels = {'yes', 'no', 'up', 'down', 'left', 'right', 
                             'on', 'off', 'stop', 'go', 'silence'}
             self.class_to_idx = {label: i for i, label in enumerate(sorted(labels))}
-            self.class_to_idx['unknown'] = len(self.class_to_idx)  # Add unknown class
+            self.class_to_idx['unknown'] = len(self.class_to_idx)  
         else:
             self.class_to_idx = {'valid': 0, 'silence': 1, 'unknown': 2}
                     
-        # Load and filter files
         self.samples = []
         with open(os.path.join(root_dir, file_list_path), 'r') as f:
             for line in f:
                 rel_path = line.strip()
-                if not rel_path:  # Skip empty lines
+                if not rel_path:
                     continue
                     
-                # Extract label from folder name
                 label = rel_path.split('/')[0]
                 
                 if label not in self.valid_labels and label != 'silence':
@@ -59,25 +56,20 @@ class SpeechCommandsDataset(Dataset):
         rel_path, label = self.samples[idx]
         full_path = os.path.join(os.path.join(self.root_dir, 'audio'), rel_path)
         
-        # Load audio
         waveform, sample_rate = torchaudio.load(full_path)
         
-        # Resample if needed (paper uses 16kHz)
         if sample_rate != self.preprocessor.sample_rate:
             resampler = T.Resample(sample_rate, self.preprocessor.sample_rate)
             waveform = resampler(waveform)
         
-        # Apply augmentations if training (as described in paper)
         if self.augment:
             waveform = self.preprocessor.apply_data_augmentation(waveform)
         
-        # Process based on mode
         if self.mode == '1d':
             data = self.preprocessor.preprocess_waveform(waveform)
         else:  # '2d'
             data = self.preprocessor.preprocess_spectrogram(waveform)
         
-        # Get class index
         class_idx = self.class_to_idx[label]
         
         return data, class_idx

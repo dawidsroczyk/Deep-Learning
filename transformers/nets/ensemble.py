@@ -30,35 +30,29 @@ class Ensemble(nn.Module):
         batch_size = x.size(0)
         device = x.device
         
-        # First get VSU predictions for the whole batch
         vsu_output = self.vsu_model(x)
         _, vsu_preds = torch.max(vsu_output, 1)
         
-        # Initialize output tensor
         outputs = torch.zeros(batch_size, len(self.class_to_idx)).to(device)
         
-        # Process each sample in the batch
         for i in range(batch_size):
             vsu_class_idx = vsu_preds[i].item()
             vsu_class = self.vsu_idx_to_class[vsu_class_idx]
             
             if vsu_class == 'valid':
-                # Get predictions from all general models for this sample
                 sample_preds = []
                 for model in self.general_models:
-                    output = model(x[i].unsqueeze(0))  # Process single sample
+                    output = model(x[i].unsqueeze(0)) 
                     _, pred = torch.max(output, 1)
                     sample_preds.append(pred.item())
                 
-                # Majority voting
                 majority_class_idx = Counter(sample_preds).most_common(1)[0][0]
                 final_class = self.idx_to_class[majority_class_idx]
                 final_idx = self.class_to_idx[final_class]
                 
-            else:  # silence or unknown
+            else: 
                 final_idx = self.class_to_idx[vsu_class]
             
-            # Set the appropriate output index
             outputs[i, final_idx] = 1.0
         
         return outputs
