@@ -8,8 +8,9 @@ from torchvision import transforms
 import data_manager as dm
 
 class VariationalEncoder(nn.Module):
-    def __init__(self, img_size=64, emb_dimension=2, *args, **kwargs):
+    def __init__(self, img_size=64, emb_dimension=2, device='cpu', *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.device = device
 
         def create_block(in_channels, out_channels, kernel_size=2, stride=2):
             return nn.Sequential(
@@ -43,16 +44,17 @@ class VariationalEncoder(nn.Module):
         mean = self.mean(x)
         log_var = self.log_var(x)
         
-        eps = torch.randn(size=(x.shape[0], self.emb_dimension))
+        eps = torch.randn(size=(x.shape[0], self.emb_dimension), device=self.device)
         x = mean + torch.exp(0.5 * log_var) * eps
 
         return x
 
 class Decoder(nn.Module):
-    def __init__(self, emb_dimension=2, img_size=64, *args, **kwargs):
+    def __init__(self, emb_dimension=2, img_size=64, device='cpu', *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.img_size = img_size
         self.out_channels = 128
+        self.device = device
 
         out_channels = 128
         in_channels = 3
@@ -97,13 +99,14 @@ class Decoder(nn.Module):
         return x
 
 class VariationalAutoencoder(nn.Module):
-    def __init__(self, img_size, emb_dimension, *args, **kwargs):
+    def __init__(self, img_size, emb_dimension, device, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.img_size = img_size
         self.emb_dimension = emb_dimension
+        self.device = device
         
-        self.encoder = VariationalEncoder(img_size, emb_dimension)
-        self.decoder = Decoder(emb_dimension, img_size)
+        self.encoder = VariationalEncoder(img_size, emb_dimension, device)
+        self.decoder = Decoder(emb_dimension, img_size, device)
     
     def forward(self, x):
         x = self.encoder(x)

@@ -8,7 +8,7 @@ import data_manager as dm
 def train_variational_autoencoder(epochs, img_size, emb_dim):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     criterion = nn.MSELoss()
-    model = VariationalAutoencoder(img_size, emb_dim).to(device)
+    model = VariationalAutoencoder(img_size, emb_dim, device=device).to(device)
     # optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
