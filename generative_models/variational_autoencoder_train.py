@@ -12,76 +12,44 @@ def train_variational_autoencoder(epochs, img_size, emb_dim):
     # optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
-    '''
-    def visualize_results(model, dataloader, epoch, latent_dim=2, num_samples=5):
+    def visualize_results(model, dataloader, epoch, latent_dim=2, num_samples=5, device='cuda'):
         model.eval()
         with torch.no_grad():
-            test_images = next(iter(dataloader))[:num_samples].to(device)
+            test_images = next(iter(dataloader))[0][:num_samples].to(device)
+
             reconstructions = model(test_images)
-            
-            random_z = torch.randn(num_samples, latent_dim).to(device)
+
+            custom_means = torch.randn(num_samples, latent_dim, device=device) * 2.0  # random means ~ N(0, 2)
+            custom_stds = torch.rand(num_samples, latent_dim, device=device) * 2.0 + 0.1  # random stds in [0.1, 2.1]
+
+            eps = torch.randn(num_samples, latent_dim, device=device)
+            random_z = custom_means + custom_stds * eps
+
             generated_images = model.decoder(random_z)
-            
+
             fig, axes = plt.subplots(3, num_samples, figsize=(15, 6))
-            
+
             for i in range(num_samples):
                 axes[0, i].imshow(test_images[i].permute(1, 2, 0).cpu().numpy().clip(0, 1))
                 axes[0, i].set_title("Original")
                 axes[0, i].axis('off')
-                
+
                 axes[1, i].imshow(reconstructions[i].permute(1, 2, 0).cpu().numpy().clip(0, 1))
                 axes[1, i].set_title("Reconstructed")
                 axes[1, i].axis('off')
-                
+
                 axes[2, i].imshow(generated_images[i].permute(1, 2, 0).cpu().numpy().clip(0, 1))
                 axes[2, i].set_title("Generated")
                 axes[2, i].axis('off')
-            
-            plt.suptitle(f"Epoch {epoch + 1} Results")
-            plt.tight_layout()
-            
-            os.makedirs("results", exist_ok=True)
-            plt.savefig(f"results/epoch_{epoch+1}.png")
-            plt.show()
-        
-        model.train()
-    '''
-    def visualize_results(model, dataloader, epoch, latent_dim=2, num_samples=5):
-        model.eval()
-        with torch.no_grad():
-            test_images = next(iter(dataloader))[:num_samples].to(device)
-            reconstructions = model(test_images)
-
-            # Use encoder to generate random μ and σ from real data
-            means = model.encoder.mean(model.encoder.blocks(test_images).view(test_images.size(0), -1))
-            log_vars = model.encoder.log_var(model.encoder.blocks(test_images).view(test_images.size(0), -1))
-            stds = torch.exp(0.5 * log_vars)
-            eps = torch.randn_like(stds)
-            random_z = means + eps * stds  # Sample from learned posterior, not standard normal
-
-            generated_images = model.decoder(random_z)
-
-            fig, axes = plt.subplots(3, num_samples, figsize=(15, 6))
-            for i in range(num_samples):
-                axes[0, i].imshow(test_images[i].permute(1, 2, 0).cpu().numpy().clip(0, 1))
-                axes[0, i].set_title("Original")
-                axes[0, i].axis('off')
-
-                axes[1, i].imshow(reconstructions[i].permute(1, 2, 0).cpu().numpy().clip(0, 1))
-                axes[1, i].set_title("Reconstructed")
-                axes[1, i].axis('off')
-
-                axes[2, i].imshow(generated_images[i].permute(1, 2, 0).cpu().numpy().clip(0, 1))
-                axes[2, i].set_title("Generated (μ, σ)")
-                axes[2, i].axis('off')
 
             plt.suptitle(f"Epoch {epoch + 1} Results")
             plt.tight_layout()
+
             os.makedirs("results", exist_ok=True)
             plt.savefig(f"results/epoch_{epoch+1}.png")
             plt.show()
-        model.train()
 
+        model.train()
 
     dataloader = dm.create_full_dataset_dataloader(dm.full_dataset_path_kaggle(), 32)
 
