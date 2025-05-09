@@ -5,10 +5,26 @@ from variational_autoencoder import VariationalAutoencoder
 import os
 import data_manager as dm
 
-def train_variational_autoencoder(epochs, img_size, emb_dim):
+def train_variational_autoencoder(
+        epochs, 
+        img_size, 
+        emb_dim,
+        in_channels=3,
+        base_channels=128,
+        num_blocks=4,
+        kernel_size=2,
+        stride=2):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     criterion = nn.MSELoss()
-    model = VariationalAutoencoder(img_size, emb_dim, device=device).to(device)
+    model = VariationalAutoencoder(
+        img_size=img_size, 
+        emb_dim=emb_dim, 
+        device=device,
+        in_channels=in_channels,
+        base_channels=base_channels,
+        num_blocks=4,
+        kernel_size=2,
+        stride=2).to(device)
     # optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
