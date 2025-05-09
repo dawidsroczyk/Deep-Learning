@@ -15,7 +15,11 @@ def train_variational_autoencoder(
         kernel_size=2,
         stride=2):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    criterion = nn.MSELoss()
+    def vae_loss(recon_x, x, mu, logvar, beta=1.0):
+        MSE = nn.MSELoss(reduction='sum')(recon_x, x)
+        KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+        return MSE + beta * KLD
+    # criterion = nn.MSELoss()
     model = VariationalAutoencoder(
         img_size=img_size, 
         emb_dimension=emb_dim, 
@@ -71,15 +75,21 @@ def train_variational_autoencoder(
     dataloader = dm.create_full_dataset_dataloader(dm.full_dataset_path_kaggle(), 32)
 
     def train_one_epoch(epoch_index):
+        model.train()
+        total_loss = 0.0
         for i, images in enumerate(dataloader):
-            images = images.to(device)
+            images, mean, log_var = images.to(device)
             if i % 100 == 0:
                 print(f'{i}/{len(dataloader)}')
             optimizer.zero_grad()
             outputs = model(images)
-            loss = criterion(images, outputs)
+            # loss = criterion(images, outputs)
+            loss = vae_loss(outputs, images, mean, log_var, beta=1.0)
             loss.backward()
             optimizer.step()
+
+            total_loss +- loss.item()
+        print(f'Loss: {total_loss}')
     
     for epoch in range(epochs):
         print(f'### EPOCH {epoch + 1} / {epochs} ###')

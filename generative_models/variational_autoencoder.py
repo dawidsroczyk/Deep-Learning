@@ -46,7 +46,7 @@ class VariationalEncoder(nn.Module):
         eps = torch.randn(size=(x.shape[0], self.emb_dimension), device=self.device)
         x = mean + torch.exp(0.5 * log_var) * eps
         
-        return x
+        return x, mean, log_var
 
 class Decoder(nn.Module):
     def __init__(self, emb_dimension=2, img_size=64, device='cpu',
@@ -132,6 +132,6 @@ class VariationalAutoencoder(nn.Module):
         self.decoder = Decoder(**decoder_params)
     
     def forward(self, x):
-        x = self.encoder(x)
+        x, mean, log_var = self.encoder(x)
         x = self.decoder(x)
-        return x
+        return x, mean, log_var
