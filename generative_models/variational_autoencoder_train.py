@@ -13,7 +13,8 @@ def train_variational_autoencoder(
         base_channels=128,
         num_blocks=4,
         kernel_size=2,
-        stride=2):
+        stride=2,
+        vae_beta=1.0):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     def vae_loss(recon_x, x, mu, logvar, beta=1.0):
         MSE = nn.MSELoss(reduction='sum')(recon_x, x)
@@ -84,7 +85,7 @@ def train_variational_autoencoder(
             optimizer.zero_grad()
             outputs, mean, log_var = model(images)
             # loss = criterion(images, outputs)
-            loss = vae_loss(outputs, images, mean, log_var, beta=1.0)
+            loss = vae_loss(outputs, images, mean, log_var, beta=vae_beta)
             loss.backward()
             optimizer.step()
 
