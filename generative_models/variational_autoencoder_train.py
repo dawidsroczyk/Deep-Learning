@@ -18,7 +18,7 @@ def train_variational_autoencoder(
     criterion = nn.MSELoss()
     model = VariationalAutoencoder(
         img_size=img_size, 
-        emb_dim=emb_dim, 
+        emb_dimension=emb_dim, 
         device=device,
         in_channels=in_channels,
         base_channels=base_channels,
