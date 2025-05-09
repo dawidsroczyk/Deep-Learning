@@ -36,7 +36,7 @@ def train_variational_autoencoder(
         model.eval()
         with torch.no_grad():
             test_images = next(iter(dataloader))[:num_samples].to(device)
-            reconstructions = model(test_images)
+            reconstructions = model(test_images)[0]
             
             # Define unique mu and sigma for each image
             mu = torch.randn(num_samples, latent_dim).to(device) * 2  # e.g. scaled for variety
