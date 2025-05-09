@@ -12,58 +12,45 @@ def train_variational_autoencoder(epochs, img_size, emb_dim):
     # optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
-    def visualize_results(model, dataloader, epoch, latent_dim=2, num_samples=5, device='cuda'):
+    def visualize_results(model, dataloader, epoch, latent_dim=2, num_samples=5):
         model.eval()
         with torch.no_grad():
-            # Get a batch of test images
-            test_images = next(iter(dataloader))[0][:num_samples].to(device)
-
-            # Reconstruct images
+            test_images = next(iter(dataloader))[:num_samples].to(device)
             reconstructions = model(test_images)
+            
+            # Define unique mu and sigma for each image
+            mu = torch.randn(num_samples, latent_dim).to(device) * 2  # e.g. scaled for variety
+            sigma = torch.rand(num_samples, latent_dim).to(device) * 0.5 + 0.1  # avoid very small std
 
-            # Generate a different mean and std for each image
-            generated_images = []
-            for _ in range(num_samples):
-                # Random mean from N(0, 2)
-                mean = torch.randn(latent_dim, device=device) * 2.0
-
-                # Random std from U(0.1, 2.1)
-                std = torch.rand(latent_dim, device=device) * 2.0 + 0.1
-
-                # Sample latent vector
-                eps = torch.randn(latent_dim, device=device)
-                z = mean + std * eps
-
-                # Decode and collect
-                generated = model.decoder(z.unsqueeze(0))  # add batch dim
-                generated_images.append(generated[0])
-
-            generated_images = torch.stack(generated_images)
-
-            # Plotting
+            eps = torch.randn(num_samples, latent_dim).to(device)
+            random_z = mu + sigma * eps
+            
+            generated_images = model.decoder(random_z)
+            
             fig, axes = plt.subplots(3, num_samples, figsize=(15, 6))
-
+            
             for i in range(num_samples):
                 axes[0, i].imshow(test_images[i].permute(1, 2, 0).cpu().numpy().clip(0, 1))
                 axes[0, i].set_title("Original")
                 axes[0, i].axis('off')
-
+                
                 axes[1, i].imshow(reconstructions[i].permute(1, 2, 0).cpu().numpy().clip(0, 1))
                 axes[1, i].set_title("Reconstructed")
                 axes[1, i].axis('off')
-
+                
                 axes[2, i].imshow(generated_images[i].permute(1, 2, 0).cpu().numpy().clip(0, 1))
                 axes[2, i].set_title("Generated")
                 axes[2, i].axis('off')
-
+            
             plt.suptitle(f"Epoch {epoch + 1} Results")
             plt.tight_layout()
-
+            
             os.makedirs("results", exist_ok=True)
             plt.savefig(f"results/epoch_{epoch+1}.png")
             plt.show()
-
+        
         model.train()
+
 
     dataloader = dm.create_full_dataset_dataloader(dm.full_dataset_path_kaggle(), 32)
 
