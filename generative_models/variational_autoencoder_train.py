@@ -77,14 +77,12 @@ def train_variational_autoencoder(
     def train_one_epoch(epoch_index):
         model.train()
         total_loss = 0.0
-        for i, (images, mean, log_var) in enumerate(dataloader):
+        for i, images in enumerate(dataloader):
             images = images.to(device)
-            mean = mean.to(device)
-            log_var = log_var.to(device)
             if i % 100 == 0:
                 print(f'{i}/{len(dataloader)}')
             optimizer.zero_grad()
-            outputs = model(images)
+            outputs, mean, log_var = model(images)
             # loss = criterion(images, outputs)
             loss = vae_loss(outputs, images, mean, log_var, beta=1.0)
             loss.backward()
