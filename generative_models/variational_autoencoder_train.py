@@ -88,7 +88,7 @@ def train_variational_autoencoder(
             loss.backward()
             optimizer.step()
 
-            total_loss +- loss.item()
+            total_loss += loss.item()
         print(f'Loss: {total_loss}')
     
     for epoch in range(epochs):
