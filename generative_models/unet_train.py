@@ -1,11 +1,3 @@
-import matplotlib.pyplot as plt
-import torch
-from torchvision import transforms
-from diffusers import DDPMScheduler
-from tqdm.auto import tqdm
-from UNet import UNet
-import data_manager as dm
-
 def train_unet(
     dataset_path,
     epochs=100,
@@ -19,22 +11,11 @@ def train_unet(
     show_samples=True,
     sample_interval=10
 ):
+    # Device setup
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    noise_scheduler = DDPMScheduler(num_train_timesteps=num_train_timesteps)
+    print(f"🚀 Using device: {device}")
 
-    transform = transforms.Compose([
-        transforms.Resize((img_size, img_size)),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        transforms.Normalize([0.5], [0.5]),
-    ])
-
-    train_dataloader = dm.create_full_dataset_dataloader(
-        path=dataset_path,
-        batch_size=batch_size,
-        transform=transform
-    )
-
+    # Model initialization ON TARGET DEVICE
     model = UNet(
         in_channels=3,
         hidden_channels=hidden_channels,
@@ -45,23 +26,43 @@ def train_unet(
         up_conv_kernel=2,
         up_conv_stride=2,
         time_emb_dim=time_emb_dim
-    ).to(device)
+    ).to(device)  # This is crucial!
 
+    # Training setup
+    noise_scheduler = DDPMScheduler(num_train_timesteps=num_train_timesteps)
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
-    with tqdm(range(epochs), desc="Total Training", unit="epoch") as epoch_pbar:
+    # Data pipeline
+    transform = transforms.Compose([
+        transforms.Resize((img_size, img_size)),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize([0.5], [0.5]),
+    ])
+    
+    train_dataloader = dm.create_full_dataset_dataloader(
+        path=dataset_path,
+        batch_size=batch_size,
+        transform=transform
+    )
+
+    # Training loop
+    with tqdm(range(epochs), desc="Total Training") as epoch_pbar:
         for epoch in epoch_pbar:
             model.train()
             epoch_loss = 0
             
-            with tqdm(train_dataloader, desc=f"Epoch {epoch+1}", leave=False, unit="batch") as batch_pbar:
+            with tqdm(train_dataloader, desc=f"Epoch {epoch+1}", leave=False) as batch_pbar:
                 for images in batch_pbar:
+                    # Ensure everything is on same device
                     images = images.to(device)
-                    noise = torch.randn_like(images)
+                    noise = torch.randn_like(images, device=device)  # Explicit device
+                    
                     timesteps = torch.randint(
                         0, num_train_timesteps, 
-                        (images.shape[0],), device=device
+                        (images.shape[0],), 
+                        device=device  # Explicit device
                     )
 
                     noisy_images = noise_scheduler.add_noise(images, noise, timesteps)
@@ -75,23 +76,28 @@ def train_unet(
                     batch_pbar.set_postfix(loss=loss.item())
                     epoch_loss += loss.item()
 
+            # Epoch statistics
             avg_loss = epoch_loss / len(train_dataloader)
             epoch_pbar.set_postfix(avg_loss=avg_loss)
 
+            # Sample generation
             if show_samples and (epoch+1) % sample_interval == 0:
                 model.eval()
                 with torch.no_grad():
                     sample = model(
                         torch.randn(1, 3, img_size, img_size, device=device),
                         torch.tensor([num_train_timesteps-1], device=device)
-                    )
+                    ).clamp(-1, 1)
+                    
+                    plt.figure(figsize=(4,4))
                     plt.imshow(sample.squeeze().permute(1,2,0).cpu().numpy() * 0.5 + 0.5)
-                    plt.title(f"Epoch {epoch+1}")
+                    plt.title(f"Epoch {epoch+1} | Loss: {avg_loss:.4f}")
                     plt.axis('off')
                     plt.show()
 
+    # Model saving
     if save_model_path:
         torch.save(model.state_dict(), save_model_path)
-        print(f"Model saved to {save_model_path}")
+        print(f"💾 Model saved to {save_model_path}")
 
     return model
