@@ -62,7 +62,8 @@ class UNet(nn.Module):
                  time_emb_dim=32,
                  *args, **kwargs):
         super().__init__(*args, **kwargs)
-
+        
+        # Store all parameters
         self.in_channels = in_channels
         self.hidden_channels = hidden_channels
         self.conv_kernel = conv_kernel
@@ -73,58 +74,69 @@ class UNet(nn.Module):
         self.up_conv_stride = up_conv_stride
         self.time_emb_dim = time_emb_dim
 
+        # Initialize all submodules properly
         self.time_embed = TimestepEmbedding(time_emb_dim)
         
         assert len(hidden_channels) > 0
 
-        forward_conv_blocks = []
+        # Encoder (downsampling path)
+        self.forward_conv_blocks = nn.ModuleList()
         iter_in_channels = in_channels
-        for idx, channels in enumerate(hidden_channels[:-1]):
-            out_c = hidden_channels[idx]
-            conv_block = ConvBlock(iter_in_channels, out_c, conv_kernel, conv_stride, time_emb_dim)
-            forward_conv_blocks.append(conv_block)
-            iter_in_channels = out_c
-        self.forward_conv_blocks = forward_conv_blocks
+        for channels in hidden_channels[:-1]:
+            self.forward_conv_blocks.append(
+                ConvBlock(iter_in_channels, channels, conv_kernel, conv_stride, time_emb_dim)
+            )
+            iter_in_channels = channels
 
-        middle_block = ConvBlock(iter_in_channels, hidden_channels[-1], conv_kernel, conv_stride, time_emb_dim)
-        self.middle_block = middle_block
+        # Middle block
+        self.middle_block = ConvBlock(iter_in_channels, hidden_channels[-1], conv_kernel, conv_stride, time_emb_dim)
 
-        reverse_conv_blocks = []
-        reverse_deconv_layers = []
+        # Decoder (upsampling path)
+        self.reverse_conv_blocks = nn.ModuleList()
+        self.reverse_deconv_layers = nn.ModuleList()
         iter_in_channels = hidden_channels[-1]
-        for idx, channels in (list(enumerate(hidden_channels))[:-1])[::-1]:
-            conv_block = ConvBlock(2*channels, channels, conv_kernel, conv_stride, time_emb_dim)
-            deconv_layer = nn.ConvTranspose2d(2*channels, channels, up_conv_kernel, up_conv_stride)
-            reverse_conv_blocks.append(conv_block)
-            reverse_deconv_layers.append(deconv_layer)
-        self.reverse_conv_blocks = reverse_conv_blocks
-        self.reverse_deconv_layers = reverse_deconv_layers
+        for channels in reversed(hidden_channels[:-1]):
+            self.reverse_deconv_layers.append(
+                nn.ConvTranspose2d(2*channels, channels, up_conv_kernel, up_conv_stride)
+            )
+            self.reverse_conv_blocks.append(
+                ConvBlock(2*channels, channels, conv_kernel, conv_stride, time_emb_dim)
+            )
 
-        final_layer = nn.Conv2d(hidden_channels[0], in_channels, 1, 1)
-        self.final_layer = final_layer
+        # Final layer
+        self.final_layer = nn.Conv2d(hidden_channels[0], in_channels, 1, 1)
+        
+        # Max pooling layer (not trainable)
+        self.max_pool = nn.MaxPool2d(max_pool_kernel, max_pool_stride)
     
     def forward(self, x, timesteps, return_dict=False):
+        # Ensure timesteps are on same device as model
+        timesteps = timesteps.to(x.device)
+        
+        # Time embedding
         time_emb = self.time_embed(timesteps)
         
+        # Encoder path
         outputs = []
-        max_pool_layer = nn.MaxPool2d(self.max_pool_kernel, self.max_pool_stride)
-
-        for i in range(len(self.hidden_channels) - 1):
-            x = self.forward_conv_blocks[i](x, time_emb)
+        for conv_block in self.forward_conv_blocks:
+            x = conv_block(x, time_emb)
             outputs.append(x)
-            x = max_pool_layer(x)
+            x = self.max_pool(x)
         
+        # Middle block
         x = self.middle_block(x, time_emb)
         
-        for i in range(len(self.hidden_channels) - 1):
-            x = self.reverse_deconv_layers[i](x)
-            x_concat = outputs[-1-i]
-            x_concat = x_concat[:, :, :x.shape[2], :x.shape[2]]
-            x = torch.concat((x_concat, x), dim=1)
-            x = self.reverse_conv_blocks[i](x, time_emb)
+        # Decoder path
+        for deconv, conv_block in zip(self.reverse_deconv_layers, self.reverse_conv_blocks):
+            x = deconv(x)
+            x_concat = outputs.pop()
+            # Ensure spatial dimensions match
+            if x_concat.shape[2:] != x.shape[2:]:
+                x = F.interpolate(x, size=x_concat.shape[2:], mode='bilinear', align_corners=False)
+            x = torch.cat([x_concat, x], dim=1)
+            x = conv_block(x, time_emb)
         
+        # Final output
         x = self.final_layer(x)
 
-        if return_dict:
-            return {"sample": x}
-        return x
+        return {"sample": x} if return_dict else x
