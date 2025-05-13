@@ -34,11 +34,12 @@ class ImageFolderDataset(Dataset):
         
         return img
 
-def create_full_dataset_dataloader(path, batch_size):
-    transform = transforms.Compose([
-        transforms.ToTensor(),  # Converts to [0,1] range
-        # transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
-    ])
+def create_full_dataset_dataloader(path, batch_size, transform=None):
+    if transform is None:
+        transform = transforms.Compose([
+            transforms.ToTensor(),  # Converts to [0,1] range
+            # transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+        ])
 
     dataset = ImageFolderDataset(
         folder_path=path,
@@ -47,7 +48,7 @@ def create_full_dataset_dataloader(path, batch_size):
 
     dataloader = DataLoader(
         dataset,
-        batch_size=32,
+        batch_size=batch_size,
         shuffle=True,
         num_workers=4
     )
