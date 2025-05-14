@@ -92,10 +92,10 @@ def train_unet(
             if show_samples and (epoch+1) % sample_interval == 0:
                 model.eval()
                 with torch.no_grad():
-                    sample = model(
-                        torch.randn(1, 3, img_size, img_size, device=device),
-                        torch.tensor([num_train_timesteps-1], device=device)
-                    ).clamp(-1, 1)
+                    x = torch.randn(1, 3, img_size, img_size, device=device)
+                    for t in reversed(range(0, num_train_timesteps)):
+                        x = model(x, torch.tensor([t], device=device))
+                    sample = x.clamp(-1, 1)
                     
                     plt.figure(figsize=(4,4))
                     plt.imshow(sample.squeeze().permute(1,2,0).cpu().numpy() * 0.5 + 0.5)
