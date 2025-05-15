@@ -2,31 +2,36 @@ import torch.nn as nn
 import torch
 import math
 
-class TimestepEmbedding(nn.Module):
-    def __init__(self, dim):
-        super().__init__()
-        self.dim = dim
-        half_dim = dim // 2
-        emb = math.log(10000) / (half_dim - 1)
-        emb = torch.exp(torch.arange(half_dim, dtype=torch.float) * -emb)
-        self.register_buffer('emb', emb)
+import torch
+import torch.nn as nn
+import math
 
-    def forward(self, timesteps):
-        emb = timesteps[:, None] * self.emb[None, :]
-        emb = torch.cat([torch.sin(emb), torch.cos(emb)], dim=-1)
-        return emb
+class PositionalEncoding(nn.Module):
+    def __init__(self, d_model: int, max_len: int = 5000, dropout: float = 0.1):
+        super().__init__()
+        self.dropout = nn.Dropout(p=dropout)
+        
+        position = torch.arange(max_len).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
+        
+        pe = torch.zeros(max_len, d_model)
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        self.register_buffer('pe', pe)
+        
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = x + self.pe[:x.size(1)]
+        return self.dropout(x)
 
 class ConvBlock(nn.Module):
-    def __init__(self, input_channels, output_channels, kernel_size, stride, time_emb_dim=None, *args, **kwargs):
+    def __init__(self, input_channels, output_channels, kernel_size, stride, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.input_channels = input_channels
         self.output_channels = output_channels
         self.kernel_size = kernel_size
         self.stride = stride
-        
-        self.time_emb_proj = None
-        if time_emb_dim is not None:
-            self.time_emb_proj = nn.Linear(time_emb_dim, output_channels)
+
+        self.positional_encoding = PositionalEncoding(dropout=0.0)
         
         self.block = nn.Sequential(
             self.create_single_block(input_channels, output_channels, kernel_size, stride),
@@ -34,6 +39,7 @@ class ConvBlock(nn.Module):
         )
     
     def forward(self, x, time_emb=None):
+        x = self.positional_encoding(x)
         x = self.block[0](x)
         if self.time_emb_proj is not None and time_emb is not None:
             time_emb = self.time_emb_proj(time_emb)
