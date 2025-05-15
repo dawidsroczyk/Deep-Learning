@@ -86,12 +86,12 @@ class UNet(nn.Module):
         iter_in_channels = in_channels
         for channels in hidden_channels[:-1]:
             self.forward_conv_blocks.append(
-                ConvBlock(iter_in_channels, channels, conv_kernel, conv_stride, time_emb_dim)
+                ConvBlock(iter_in_channels, channels, conv_kernel, conv_stride)
             )
             iter_in_channels = channels
 
         # Middle block
-        self.middle_block = ConvBlock(iter_in_channels, hidden_channels[-1], conv_kernel, conv_stride, time_emb_dim)
+        self.middle_block = ConvBlock(iter_in_channels, hidden_channels[-1], conv_kernel, conv_stride)
 
         # Decoder (upsampling path)
         self.reverse_conv_blocks = nn.ModuleList()
@@ -133,8 +133,8 @@ class UNet(nn.Module):
             x = deconv(x)
             x_concat = outputs.pop()
             # Ensure spatial dimensions match
-            if x_concat.shape[2:] != x.shape[2:]:
-                x = F.interpolate(x, size=x_concat.shape[2:], mode='bilinear', align_corners=False)
+            # if x_concat.shape[2:] != x.shape[2:]:
+            #     x = F.interpolate(x, size=x_concat.shape[2:], mode='bilinear', align_corners=False)
             x = torch.cat([x_concat, x], dim=1)
             x = conv_block(x, time_emb)
         
