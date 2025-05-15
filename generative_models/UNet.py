@@ -78,10 +78,6 @@ class UNet(nn.Module):
         self.max_pool_stride = max_pool_stride
         self.up_conv_kernel = up_conv_kernel
         self.up_conv_stride = up_conv_stride
-        self.time_emb_dim = time_emb_dim
-
-        # Initialize all submodules properly
-        self.time_embed = TimestepEmbedding(time_emb_dim)
         
         assert len(hidden_channels) > 0
 
