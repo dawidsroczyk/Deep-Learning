@@ -48,7 +48,7 @@ def save_fake_imgs(ngpu, nz, ngf, nc, device, dir, random_state=42):
     netG = Generator(ngpu, nz, ngf, nc).to(device)
     netG.load_state_dict(torch.load(os.path.join(os.path.join(dir, 'nets'), 'netG')))
 
-    fixed_noise = torch.randn(1000, nz, 1, 1, device=device)
+    fixed_noise = torch.randn(100, nz, 1, 1, device=device)
     with torch.no_grad():
         fake = netG(fixed_noise).detach().cpu()
 
@@ -180,7 +180,7 @@ def load_images_from_folder(folder, transform, max_images=None):
 
 #     return fid_score
 
-def calculate_fid(real_path, fake_path, device, max_images=1000):
+def calculate_fid(real_path, fake_path, device, max_images=100):
     """
     Computes FID between real images and fake images using torchmetrics.
     Assumes both directories contain .jpg/.png images.
