@@ -189,10 +189,67 @@ class ModelMoreChannels(torch.nn.Module):
         x = self.conv_out(x)
         return x
 
+class ModelMoreChannels2(torch.nn.Module):
+    def __init__(self, num_steps=1000, ch=64):
+        super(ModelMoreChannels2, self).__init__()
+
+        embed_dim = ch*4
+        self.embed = torch.nn.Sequential(
+            PositionalEncoding(ch, num_steps),
+            torch.nn.Linear(ch, embed_dim),
+            torch.nn.ReLU(),
+            torch.nn.Linear(embed_dim, embed_dim),
+            torch.nn.ReLU(),
+        )
+
+        self.conv_in = torch.nn.Conv2d(3, ch, kernel_size=3, padding=1)
+        self.enc1_1 = ResnetBlock(ch, ch, embed_dim)
+        self.enc1_2 = ResnetBlock(ch, ch*2, embed_dim)
+        self.downconv1 = Downsample(ch*2, ch*2)
+        self.enc2_1 = ResnetBlock(ch*2, ch*2, embed_dim)
+        self.enc2_2 = ResnetBlock(ch*2, ch*4, embed_dim)
+        self.downconv2 = Downsample(ch*4, ch*4)
+        self.bottleneck_1 = ResnetBlock(ch*4, ch*4, embed_dim)
+        self.bottleneck_2 = ResnetBlock(ch*4, ch*4, embed_dim)
+        self.upconv2 = Upsample(ch*4, ch*4)
+        self.dec2_1 = ResnetBlock(ch*8, ch*4, embed_dim)
+        self.dec2_2 = ResnetBlock(ch*4, ch*2, embed_dim)
+        self.upconv1 = Upsample(ch*2, ch*2)
+        self.dec1_1 = ResnetBlock(ch*4, ch*2, embed_dim)
+        self.dec1_2 = ResnetBlock(ch*2, ch, embed_dim)
+        self.norm_out = torch.nn.GroupNorm(32, ch)
+        self.conv_out = torch.nn.Conv2d(ch, 3, kernel_size=3, padding=1)
+
+    def forward(self, x, t):
+        emb = self.embed(t)
+
+        x = self.conv_in(x)
+        x = self.enc1_1(x, emb)
+        enc1 = self.enc1_2(x, emb)
+        x = self.downconv1(enc1)
+        x = self.enc2_1(x, emb)
+        enc2 = self.enc2_2(x, emb)
+        x = self.downconv2(enc2)
+        x = self.bottleneck_1(x, emb)
+        x = self.bottleneck_2(x, emb)
+        x = self.upconv2(x)
+        x = torch.cat([x, enc2], 1)
+        x = self.dec2_1(x, emb)
+        x = self.dec2_2(x, emb)
+        x = self.upconv1(x)
+        x = torch.cat([x, enc1], 1)
+        x = self.dec1_1(x, emb)
+        x = self.dec1_2(x, emb)
+        x = self.norm_out(x)
+        x = torch.nn.functional.silu(x)
+        x = self.conv_out(x)
+        return x
+
 def get_model(name):
     model_dict = {
         'Model': Model,
-        'ModelMoreChannels': ModelMoreChannels
+        'ModelMoreChannels': ModelMoreChannels,
+        'ModelMoreChannels2': ModelMoreChannels2
     }
     if name not in model_dict.keys():
         raise Exception('Invalid Model name')
