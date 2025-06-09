@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+from torchvision.utils import make_grid
+import torchvision.transforms.functional as F
 
 class VariationalEncoder(nn.Module):
     def __init__(self, img_size=64, emb_dimension=2, device='cpu', 
@@ -16,7 +18,6 @@ class VariationalEncoder(nn.Module):
                 nn.LeakyReLU()
             )
         
-        # Create encoder blocks
         self.blocks = nn.ModuleList()
         current_channels = in_channels
         for i in range(num_blocks):
@@ -26,8 +27,6 @@ class VariationalEncoder(nn.Module):
             current_channels = base_channels
         
         self.flatten = nn.Flatten()
-        
-        # Calculate the linear layer input dimension
         downsampled_size = img_size // (stride ** num_blocks)
         in_dim = (downsampled_size ** 2) * base_channels
         
@@ -37,15 +36,11 @@ class VariationalEncoder(nn.Module):
     def forward(self, x):
         for block in self.blocks:
             x = block(x)
-        
         x = self.flatten(x)
-        
         mean = self.mean(x)
         log_var = self.log_var(x)
-        
         eps = torch.randn(size=(x.shape[0], self.emb_dimension), device=self.device)
         x = mean + torch.exp(0.5 * log_var) * eps
-        
         return x, mean, log_var
 
 class Decoder(nn.Module):
@@ -64,7 +59,6 @@ class Decoder(nn.Module):
                 nn.LeakyReLU()
             )
         
-        # Calculate the linear layer output dimension
         downsampled_size = img_size // (stride ** num_blocks)
         in_dim = (downsampled_size ** 2) * base_channels
         
@@ -72,7 +66,6 @@ class Decoder(nn.Module):
         self.batch_norm_1 = nn.BatchNorm1d(in_dim)
         self.leaky_relu_1 = nn.LeakyReLU()
         
-        # Create decoder blocks
         self.blocks = nn.ModuleList()
         for i in range(num_blocks):
             self.blocks.append(
@@ -85,14 +78,10 @@ class Decoder(nn.Module):
         x = self.lin_1(x)
         x = self.batch_norm_1(x)
         x = self.leaky_relu_1(x)
-        
-        # Reshape to start the convolutional transpose path
         downsampled_size = self.img_size // (2 ** len(self.blocks))
         x = torch.reshape(x, (-1, self.base_channels, downsampled_size, downsampled_size))
-        
         for block in self.blocks:
             x = block(x)
-        
         x = self.final_conv2d(x)
         return x
 
@@ -105,7 +94,6 @@ class VariationalAutoencoder(nn.Module):
         self.emb_dimension = emb_dimension
         self.device = device
         
-        # Initialize encoder and decoder with matching architecture
         encoder_params = {
             'img_size': img_size,
             'emb_dimension': emb_dimension,
@@ -135,3 +123,9 @@ class VariationalAutoencoder(nn.Module):
         x, mean, log_var = self.encoder(x)
         x = self.decoder(x)
         return x, mean, log_var
+
+def save_sample_images(images, path, nrow=5):
+    """Utility function to save image grids"""
+    grid = make_grid(images, nrow=nrow, padding=2)
+    grid = F.to_pil_image(grid)
+    grid.save(path)

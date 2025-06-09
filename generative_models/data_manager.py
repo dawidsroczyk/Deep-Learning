@@ -32,7 +32,7 @@ class ImageFolderDataset(Dataset):
         if self.transform:
             img = self.transform(img)
         
-        return img
+        return img, 0
 
 def create_full_dataset_dataloader(path, batch_size, transform=None):
     if transform is None:
