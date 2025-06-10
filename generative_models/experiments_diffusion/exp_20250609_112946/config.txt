@@ -1,0 +1,207 @@
+Training Configuration:
+Batch size: 128
+Epochs: 120
+Learning rate: 0.001
+Model name: ModelMoreChannels
+Image size: 64
+Random seed: 42
+
+Model Architecture:
+ModelMoreChannels(
+  (embed): Sequential(
+    (0): PositionalEncoding()
+    (1): Linear(in_features=32, out_features=128, bias=True)
+    (2): ReLU()
+    (3): Linear(in_features=128, out_features=128, bias=True)
+    (4): ReLU()
+  )
+  (conv_in): Conv2d(3, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+  (enc1_1): ResnetBlock(
+    (in_layers): Sequential(
+      (0): GroupNorm(16, 32, eps=1e-05, affine=True)
+      (1): ReLU()
+      (2): Conv2d(32, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    )
+    (emb_layers): Sequential(
+      (0): ReLU()
+      (1): Linear(in_features=128, out_features=32, bias=True)
+    )
+    (out_layers): Sequential(
+      (0): GroupNorm(16, 32, eps=1e-05, affine=True)
+      (1): ReLU()
+      (2): Conv2d(32, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    )
+    (shortcut): Identity()
+  )
+  (enc1_2): ResnetBlock(
+    (in_layers): Sequential(
+      (0): GroupNorm(16, 32, eps=1e-05, affine=True)
+      (1): ReLU()
+      (2): Conv2d(32, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    )
+    (emb_layers): Sequential(
+      (0): ReLU()
+      (1): Linear(in_features=128, out_features=64, bias=True)
+    )
+    (out_layers): Sequential(
+      (0): GroupNorm(16, 64, eps=1e-05, affine=True)
+      (1): ReLU()
+      (2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    )
+    (shortcut): Conv2d(32, 64, kernel_size=(1, 1), stride=(1, 1))
+  )
+  (downconv1): Downsample(
+    (conv): Conv2d(64, 64, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1))
+  )
+  (enc2_1): ResnetBlock(
+    (in_layers): Sequential(
+      (0): GroupNorm(16, 64, eps=1e-05, affine=True)
+      (1): ReLU()
+      (2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    )
+    (emb_layers): Sequential(
+      (0): ReLU()
+      (1): Linear(in_features=128, out_features=64, bias=True)
+    )
+    (out_layers): Sequential(
+      (0): GroupNorm(16, 64, eps=1e-05, affine=True)
+      (1): ReLU()
+      (2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    )
+    (shortcut): Identity()
+  )
+  (enc2_2): ResnetBlock(
+    (in_layers): Sequential(
+      (0): GroupNorm(16, 64, eps=1e-05, affine=True)
+      (1): ReLU()
+      (2): Conv2d(64, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    )
+    (emb_layers): Sequential(
+      (0): ReLU()
+      (1): Linear(in_features=128, out_features=128, bias=True)
+    )
+    (out_layers): Sequential(
+      (0): GroupNorm(16, 128, eps=1e-05, affine=True)
+      (1): ReLU()
+      (2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    )
+    (shortcut): Conv2d(64, 128, kernel_size=(1, 1), stride=(1, 1))
+  )
+  (downconv2): Downsample(
+    (conv): Conv2d(128, 128, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1))
+  )
+  (bottleneck_1): ResnetBlock(
+    (in_layers): Sequential(
+      (0): GroupNorm(16, 128, eps=1e-05, affine=True)
+      (1): ReLU()
+      (2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    )
+    (emb_layers): Sequential(
+      (0): ReLU()
+      (1): Linear(in_features=128, out_features=128, bias=True)
+    )
+    (out_layers): Sequential(
+      (0): GroupNorm(16, 128, eps=1e-05, affine=True)
+      (1): ReLU()
+      (2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    )
+    (shortcut): Identity()
+  )
+  (bottleneck_2): ResnetBlock(
+    (in_layers): Sequential(
+      (0): GroupNorm(16, 128, eps=1e-05, affine=True)
+      (1): ReLU()
+      (2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    )
+    (emb_layers): Sequential(
+      (0): ReLU()
+      (1): Linear(in_features=128, out_features=128, bias=True)
+    )
+    (out_layers): Sequential(
+      (0): GroupNorm(16, 128, eps=1e-05, affine=True)
+      (1): ReLU()
+      (2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    )
+    (shortcut): Identity()
+  )
+  (upconv2): Upsample(
+    (conv): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+  )
+  (dec2_1): ResnetBlock(
+    (in_layers): Sequential(
+      (0): GroupNorm(16, 256, eps=1e-05, affine=True)
+      (1): ReLU()
+      (2): Conv2d(256, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    )
+    (emb_layers): Sequential(
+      (0): ReLU()
+      (1): Linear(in_features=128, out_features=128, bias=True)
+    )
+    (out_layers): Sequential(
+      (0): GroupNorm(16, 128, eps=1e-05, affine=True)
+      (1): ReLU()
+      (2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    )
+    (shortcut): Conv2d(256, 128, kernel_size=(1, 1), stride=(1, 1))
+  )
+  (dec2_2): ResnetBlock(
+    (in_layers): Sequential(
+      (0): GroupNorm(16, 128, eps=1e-05, affine=True)
+      (1): ReLU()
+      (2): Conv2d(128, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    )
+    (emb_layers): Sequential(
+      (0): ReLU()
+      (1): Linear(in_features=128, out_features=64, bias=True)
+    )
+    (out_layers): Sequential(
+      (0): GroupNorm(16, 64, eps=1e-05, affine=True)
+      (1): ReLU()
+      (2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    )
+    (shortcut): Conv2d(128, 64, kernel_size=(1, 1), stride=(1, 1))
+  )
+  (upconv1): Upsample(
+    (conv): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+  )
+  (dec1_1): ResnetBlock(
+    (in_layers): Sequential(
+      (0): GroupNorm(16, 128, eps=1e-05, affine=True)
+      (1): ReLU()
+      (2): Conv2d(128, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    )
+    (emb_layers): Sequential(
+      (0): ReLU()
+      (1): Linear(in_features=128, out_features=64, bias=True)
+    )
+    (out_layers): Sequential(
+      (0): GroupNorm(16, 64, eps=1e-05, affine=True)
+      (1): ReLU()
+      (2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    )
+    (shortcut): Conv2d(128, 64, kernel_size=(1, 1), stride=(1, 1))
+  )
+  (dec1_2): ResnetBlock(
+    (in_layers): Sequential(
+      (0): GroupNorm(16, 64, eps=1e-05, affine=True)
+      (1): ReLU()
+      (2): Conv2d(64, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    )
+    (emb_layers): Sequential(
+      (0): ReLU()
+      (1): Linear(in_features=128, out_features=32, bias=True)
+    )
+    (out_layers): Sequential(
+      (0): GroupNorm(16, 32, eps=1e-05, affine=True)
+      (1): ReLU()
+      (2): Conv2d(32, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    )
+    (shortcut): Conv2d(64, 32, kernel_size=(1, 1), stride=(1, 1))
+  )
+  (norm_out): GroupNorm(32, 32, eps=1e-05, affine=True)
+  (conv_out): Conv2d(32, 3, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+)
+
+Parameter Counts:
+Total Parameters: 2,215,875
+Trainable Parameters: 2,215,875
