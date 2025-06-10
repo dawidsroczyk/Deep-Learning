@@ -14,21 +14,17 @@ class PositionalEncoding(torch.nn.Module):
     def __init__(self, d_model, max_len=1000):
         super(PositionalEncoding, self).__init__()
 
-        # Create a matrix to hold the positional encodings
         pe = torch.zeros(max_len, d_model)
 
-        # Compute the positional encodings
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
         div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
 
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
 
-        # Register pe as a buffer to avoid updating it during backpropagation
         self.register_buffer('pe', pe)
 
     def forward(self, x):
-        # Retrieve the positional encodings
         return self.pe[x]
 
 class ResnetBlock(torch.nn.Module):
@@ -134,35 +130,35 @@ class Model(torch.nn.Module):
         return x
 
 class ModelMoreChannels(torch.nn.Module):
-    def __init__(self, num_steps=1000, ch=32):
+    def __init__(self, num_steps=1000):
         super(ModelMoreChannels, self).__init__()
 
-        embed_dim = ch*4
+        embed_dim = 32 * 4
         self.embed = torch.nn.Sequential(
-            PositionalEncoding(ch, num_steps),
-            torch.nn.Linear(ch, embed_dim),
+            PositionalEncoding(32, num_steps),
+            torch.nn.Linear(32, embed_dim),
             torch.nn.ReLU(),
             torch.nn.Linear(embed_dim, embed_dim),
             torch.nn.ReLU(),
         )
 
-        self.conv_in = torch.nn.Conv2d(3, ch, kernel_size=3, padding=1)
-        self.enc1_1 = ResnetBlock(ch, ch, embed_dim)
-        self.enc1_2 = ResnetBlock(ch, ch*2, embed_dim)
-        self.downconv1 = Downsample(ch*2, ch*2)
-        self.enc2_1 = ResnetBlock(ch*2, ch*2, embed_dim)
-        self.enc2_2 = ResnetBlock(ch*2, ch*4, embed_dim)
-        self.downconv2 = Downsample(ch*4, ch*4)
-        self.bottleneck_1 = ResnetBlock(ch*4, ch*4, embed_dim)
-        self.bottleneck_2 = ResnetBlock(ch*4, ch*4, embed_dim)
-        self.upconv2 = Upsample(ch*4, ch*4)
-        self.dec2_1 = ResnetBlock(ch*8, ch*4, embed_dim)
-        self.dec2_2 = ResnetBlock(ch*4, ch*2, embed_dim)
-        self.upconv1 = Upsample(ch*2, ch*2)
-        self.dec1_1 = ResnetBlock(ch*4, ch*2, embed_dim)
-        self.dec1_2 = ResnetBlock(ch*2, ch, embed_dim)
-        self.norm_out = torch.nn.GroupNorm(32, ch)
-        self.conv_out = torch.nn.Conv2d(ch, 3, kernel_size=3, padding=1)
+        self.conv_in = torch.nn.Conv2d(3, 32, kernel_size=3, padding=1)
+        self.enc1_1 = ResnetBlock(32, 32, embed_dim)
+        self.enc1_2 = ResnetBlock(32, 64, embed_dim)
+        self.downconv1 = Downsample(64, 64)
+        self.enc2_1 = ResnetBlock(64, 64, embed_dim)
+        self.enc2_2 = ResnetBlock(64, 128, embed_dim)
+        self.downconv2 = Downsample(128, 128)
+        self.bottleneck_1 = ResnetBlock(128, 128, embed_dim)
+        self.bottleneck_2 = ResnetBlock(128, 128, embed_dim)
+        self.upconv2 = Upsample(128, 128)
+        self.dec2_1 = ResnetBlock(256, 128, embed_dim)
+        self.dec2_2 = ResnetBlock(128, 64, embed_dim)
+        self.upconv1 = Upsample(64, 64)
+        self.dec1_1 = ResnetBlock(128, 64, embed_dim)
+        self.dec1_2 = ResnetBlock(64, 32, embed_dim)
+        self.norm_out = torch.nn.GroupNorm(32, 32)
+        self.conv_out = torch.nn.Conv2d(32, 3, kernel_size=3, padding=1)
 
     def forward(self, x, t):
         emb = self.embed(t)
@@ -190,35 +186,35 @@ class ModelMoreChannels(torch.nn.Module):
         return x
 
 class ModelMoreChannels2(torch.nn.Module):
-    def __init__(self, num_steps=1000, ch=64):
+    def __init__(self, num_steps=1000):
         super(ModelMoreChannels2, self).__init__()
 
-        embed_dim = ch*4
+        embed_dim = 64 * 4
         self.embed = torch.nn.Sequential(
-            PositionalEncoding(ch, num_steps),
-            torch.nn.Linear(ch, embed_dim),
+            PositionalEncoding(64, num_steps),
+            torch.nn.Linear(64, embed_dim),
             torch.nn.ReLU(),
             torch.nn.Linear(embed_dim, embed_dim),
             torch.nn.ReLU(),
         )
 
-        self.conv_in = torch.nn.Conv2d(3, ch, kernel_size=3, padding=1)
-        self.enc1_1 = ResnetBlock(ch, ch, embed_dim)
-        self.enc1_2 = ResnetBlock(ch, ch*2, embed_dim)
-        self.downconv1 = Downsample(ch*2, ch*2)
-        self.enc2_1 = ResnetBlock(ch*2, ch*2, embed_dim)
-        self.enc2_2 = ResnetBlock(ch*2, ch*4, embed_dim)
-        self.downconv2 = Downsample(ch*4, ch*4)
-        self.bottleneck_1 = ResnetBlock(ch*4, ch*4, embed_dim)
-        self.bottleneck_2 = ResnetBlock(ch*4, ch*4, embed_dim)
-        self.upconv2 = Upsample(ch*4, ch*4)
-        self.dec2_1 = ResnetBlock(ch*8, ch*4, embed_dim)
-        self.dec2_2 = ResnetBlock(ch*4, ch*2, embed_dim)
-        self.upconv1 = Upsample(ch*2, ch*2)
-        self.dec1_1 = ResnetBlock(ch*4, ch*2, embed_dim)
-        self.dec1_2 = ResnetBlock(ch*2, ch, embed_dim)
-        self.norm_out = torch.nn.GroupNorm(32, ch)
-        self.conv_out = torch.nn.Conv2d(ch, 3, kernel_size=3, padding=1)
+        self.conv_in = torch.nn.Conv2d(3, 64, kernel_size=3, padding=1)
+        self.enc1_1 = ResnetBlock(64, 64, embed_dim)
+        self.enc1_2 = ResnetBlock(64, 128, embed_dim)
+        self.downconv1 = Downsample(128, 128)
+        self.enc2_1 = ResnetBlock(128, 128, embed_dim)
+        self.enc2_2 = ResnetBlock(128, 256, embed_dim)
+        self.downconv2 = Downsample(256, 256)
+        self.bottleneck_1 = ResnetBlock(256, 256, embed_dim)
+        self.bottleneck_2 = ResnetBlock(256, 256, embed_dim)
+        self.upconv2 = Upsample(256, 256)
+        self.dec2_1 = ResnetBlock(512, 256, embed_dim)
+        self.dec2_2 = ResnetBlock(256, 128, embed_dim)
+        self.upconv1 = Upsample(128, 128)
+        self.dec1_1 = ResnetBlock(256, 128, embed_dim)
+        self.dec1_2 = ResnetBlock(128, 64, embed_dim)
+        self.norm_out = torch.nn.GroupNorm(32, 64)
+        self.conv_out = torch.nn.Conv2d(64, 3, kernel_size=3, padding=1)
 
     def forward(self, x, t):
         emb = self.embed(t)
@@ -244,6 +240,7 @@ class ModelMoreChannels2(torch.nn.Module):
         x = torch.nn.functional.silu(x)
         x = self.conv_out(x)
         return x
+
 
 def get_model(name):
     model_dict = {

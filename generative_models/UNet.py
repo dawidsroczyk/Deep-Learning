@@ -17,17 +17,12 @@ class PositionalEncoding(nn.Module):
         self.register_buffer('pe', pe)
         
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # For 2D inputs (B, C, H, W), we need to adapt the positional encoding
         if x.dim() == 4:
             B, C, H, W = x.shape
-            # Reshape to (B, H*W, C) to match expected shape
             x = x.permute(0, 2, 3, 1).reshape(B, H*W, C)
-            # Add positional encoding to first H*W positions
             x = x + self.pe[:H*W]
-            # Reshape back to original
             x = x.reshape(B, H, W, C).permute(0, 3, 1, 2)
         else:
-            # Original behavior for 3D inputs (B, L, C)
             x = x + self.pe[:x.size(1)]
         return self.dropout(x)
 
@@ -39,10 +34,8 @@ class ConvBlock(nn.Module):
         self.kernel_size = kernel_size
         self.stride = stride
         
-        # Positional encoding for spatial dimensions
         self.positional_encoding = PositionalEncoding(d_model=output_channels)
         
-        # Time embedding projection if needed
         self.time_emb_proj = None
         if time_emb_dim is not None:
             self.time_emb_proj = nn.Linear(time_emb_dim, output_channels)
@@ -55,10 +48,8 @@ class ConvBlock(nn.Module):
     def forward(self, x, time_emb=None):
         x = self.block[0](x)
         
-        # Add positional encoding after first conv
         x = self.positional_encoding(x)
         
-        # Add time embedding if provided
         if self.time_emb_proj is not None and time_emb is not None:
             time_emb = self.time_emb_proj(time_emb)
             time_emb = time_emb.view(-1, self.output_channels, 1, 1)
@@ -93,14 +84,12 @@ class UNet(nn.Module):
         self.hidden_channels = hidden_channels
         self.time_emb_dim = time_emb_dim
         
-        # Time embedding layer
         self.time_embed = nn.Sequential(
             nn.Linear(1, time_emb_dim),
             nn.SiLU(),
             nn.Linear(time_emb_dim, time_emb_dim)
         ) if time_emb_dim > 0 else None
         
-        # Encoder (downsampling path)
         self.forward_conv_blocks = nn.ModuleList()
         iter_in_channels = in_channels
         for channels in hidden_channels[:-1]:
@@ -109,13 +98,11 @@ class UNet(nn.Module):
             )
             iter_in_channels = channels
 
-        # Middle block
         self.middle_block = ConvBlock(
             hidden_channels[-2] if len(hidden_channels) > 1 else iter_in_channels,
             hidden_channels[-1], conv_kernel, conv_stride, time_emb_dim
         )
 
-        # Decoder (upsampling path)
         self.reverse_conv_blocks = nn.ModuleList()
         self.reverse_deconv_layers = nn.ModuleList()
         for i in range(len(hidden_channels)-1, 0, -1):
@@ -128,43 +115,34 @@ class UNet(nn.Module):
                          conv_kernel, conv_stride, time_emb_dim)
             )
 
-        # Final layer
         self.final_layer = nn.Conv2d(hidden_channels[0], in_channels, 1)
         
-        # Max pooling layer
         self.max_pool = nn.MaxPool2d(max_pool_kernel, max_pool_stride)
     
     def forward(self, x, timesteps=None, return_dict=False):
-        # Time embedding
         time_emb = None
         if self.time_embed is not None and timesteps is not None:
-            # Ensure timesteps are in correct shape (B,) -> (B, 1)
             timesteps = timesteps.view(-1, 1).float()
             time_emb = self.time_embed(timesteps)
         
-        # Encoder path
         outputs = []
         for conv_block in self.forward_conv_blocks:
             x = conv_block(x, time_emb)
             outputs.append(x)
             x = self.max_pool(x)
         
-        # Middle block
         x = self.middle_block(x, time_emb)
         
-        # Decoder path
         for deconv, conv_block in zip(self.reverse_deconv_layers, self.reverse_conv_blocks):
             x = deconv(x)
             x_concat = outputs.pop()
             
-            # Handle potential size mismatches
             if x.shape != x_concat.shape:
                 x = F.interpolate(x, size=x_concat.shape[2:], mode='bilinear', align_corners=False)
             
             x = torch.cat([x_concat, x], dim=1)
             x = conv_block(x, time_emb)
         
-        # Final output
         x = self.final_layer(x)
 
         return {"sample": x} if return_dict else x

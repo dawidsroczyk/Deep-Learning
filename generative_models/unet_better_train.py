@@ -23,7 +23,6 @@ def generate_sample_images(model, noise_scheduler, device, n_samples=8):
     """Generate sample images during training"""
     model.eval()
     with torch.no_grad():
-        # Use noise_scheduler from diffusers
         x = torch.randn(n_samples, 3, 32, 32).to(device)
         for step in noise_scheduler.timesteps:
             t = torch.tensor([step], device=device).expand(x.size(0))
@@ -36,7 +35,6 @@ def generate_sample_images(model, noise_scheduler, device, n_samples=8):
 def log_config_info(model, exp_dir, batch_size, epochs, lr, model_name, img_size, seed):
     """Log model architecture and training configuration to a file"""
     with open(f"{exp_dir}/config.txt", "w") as f:
-        # Write training configuration
         f.write("Training Configuration:\n")
         f.write(f"Batch size: {batch_size}\n")
         f.write(f"Epochs: {epochs}\n")
@@ -46,11 +44,9 @@ def log_config_info(model, exp_dir, batch_size, epochs, lr, model_name, img_size
         f.write(f'Random seed: {seed}\n')
         f.write("\n")
         
-        # Write model architecture summary
         f.write("Model Architecture:\n")
         f.write(str(model))
         
-        # Write parameter count
         total_params = sum(p.numel() for p in model.parameters())
         trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
         f.write("\n\nParameter Counts:\n")
@@ -65,7 +61,6 @@ def train(batch_size=128, epochs=80, lr=1e-3, model_name='Model', img_size=32, s
     random.seed(seed)
     np.random.seed(seed)
     
-    # Replace with diffusers scheduler
     noise_scheduler = DDPMScheduler(
         num_train_timesteps=1000,
         beta_start=1e-4,
@@ -87,15 +82,12 @@ def train(batch_size=128, epochs=80, lr=1e-3, model_name='Model', img_size=32, s
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = torch.nn.MSELoss()
 
-    # Create experiment directory
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     exp_dir = f"experiments_diffusion/exp_{timestamp}"
     os.makedirs(exp_dir, exist_ok=True)
     
-    # Log configuration information
     log_config_info(model, exp_dir, batch_size, epochs, lr, model_name, img_size, seed)
     
-    # Initialize metrics dictionary
     metrics = {
         'config': {
             'batch_size': batch_size,
@@ -115,7 +107,6 @@ def train(batch_size=128, epochs=80, lr=1e-3, model_name='Model', img_size=32, s
         'epoch_losses': []
     }
 
-    # Train
     for epoch in range(epochs):
         loss_epoch = 0
         n = 0
@@ -123,20 +114,16 @@ def train(batch_size=128, epochs=80, lr=1e-3, model_name='Model', img_size=32, s
             x = x.to(device)
             optimizer.zero_grad()
             
-            # Sample noise to add to the images
             noise = torch.randn_like(x)
             
-            # Sample a random timestep for each image
             timesteps = torch.randint(
                 0, noise_scheduler.config.num_train_timesteps, 
                 (x.size(0),),
                 device=device
             ).long()
             
-            # Add noise to the clean images according to the timestep
             noisy_images = noise_scheduler.add_noise(x, noise, timesteps)
             
-            # Predict the noise residual
             pred_noise = model(noisy_images, timesteps)
             loss = criterion(pred_noise, noise)
             loss.backward()
@@ -148,11 +135,9 @@ def train(batch_size=128, epochs=80, lr=1e-3, model_name='Model', img_size=32, s
         epoch_loss = loss_epoch / n
         metrics['epoch_losses'].append(epoch_loss)
         
-        # Save metrics to JSON file
         with open(f"{exp_dir}/metrics.json", 'w') as f:
             json.dump(metrics, f, indent=2)
         
-        # Generate and save sample images
         sample_images = generate_sample_images(model, noise_scheduler, device)
         grid = make_grid(sample_images, nrow=8, padding=2)
         grid = F.to_pil_image(grid)

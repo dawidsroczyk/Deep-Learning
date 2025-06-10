@@ -140,20 +140,21 @@ class VAETrainer:
         torch.save(self.model.state_dict(), f"{self.exp_dir}/final_model.pth")
 
 if __name__ == "__main__":
-    config = {
-        'epochs': 100,
-        'img_size': 64,
-        'emb_dim': 200,
-        'in_channels': 3,
-        'base_channels': 64,
-        'num_blocks': 4,
-        'kernel_size': 2,
-        'stride': 2,
-        'vae_beta': 2.0,
-        'batch_size': 32,
-        'learning_rate': 1e-3,
-        'save_interval': 1
-    }
-    
-    trainer = VAETrainer(config)
-    trainer.train()
+    for base_channels in [16, 32, 128]:
+        config = {
+            'epochs': 100,
+            'img_size': 64,
+            'emb_dim': 200,
+            'in_channels': 3,
+            'base_channels': base_channels,
+            'num_blocks': 4,
+            'kernel_size': 2,
+            'stride': 2,
+            'vae_beta': 2.0,
+            'batch_size': 32,
+            'learning_rate': 1e-3,
+            'save_interval': 1
+        }
+        
+        trainer = VAETrainer(config)
+        trainer.train()

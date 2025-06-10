@@ -12,16 +12,14 @@ from diffusers import DDPMScheduler
 from variational_autoencoder import VariationalAutoencoder
 import json
 
-# ===== Configuration =====
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-num_images = 256                # Number of images to generate and compare
-batch_size = 256                # Adjust if you get GPU memory errors
-seed = 42                      # For reproducibility
+num_images = 256
+batch_size = 256
+seed = 42
 real_images_path = dm.full_dataset_path_kaggle()
 subset_real_dir = "real_images_subset_256"
 gen_dir = "generated_images_256"
 
-# Initialize noise scheduler for diffusion models
 noise_scheduler = DDPMScheduler(
     num_train_timesteps=1000,
     beta_start=1e-4,
@@ -30,7 +28,6 @@ noise_scheduler = DDPMScheduler(
     clip_sample=False
 )
 
-# ===== Helper Classes =====
 class DiffusionModel:
     def __init__(self, exp_path, noise_scheduler, device):
         with open(os.path.join(exp_path, 'config.txt'), 'r') as file:
@@ -107,10 +104,9 @@ class VAE_Model:
                 noise = self.generate_noise(num_samples=num_samples)
             noise = noise.to(self.device)
             generated = self.model.decoder(noise)
-            generated = torch.clamp(generated, 0, 1)  # Ensure valid image range
+            generated = torch.clamp(generated, 0, 1)
         return generated
 
-# ===== Prepare Real Image Subset =====
 def prepare_real_subset():
     if os.path.exists(subset_real_dir):
         print(f"Using existing real images subset at {subset_real_dir}")
@@ -127,7 +123,6 @@ def prepare_real_subset():
         shutil.copy(src, dst)
     print(f"Created fixed subset of {num_images} real images at {subset_real_dir}")
 
-# ===== Evaluation Functions =====
 def evaluate_model(model_class, experiments_dir, model_type="VAE"):
     fid_scores = []
     
@@ -136,18 +131,15 @@ def evaluate_model(model_class, experiments_dir, model_type="VAE"):
         if 'final_model.pth' not in os.listdir(exp_dir):
             continue
 
-        # Clean and prepare generation directory
         if os.path.exists(gen_dir):
             shutil.rmtree(gen_dir)
         os.makedirs(gen_dir, exist_ok=True)
 
-        # Initialize model
         if model_type == "VAE":
             model = VAE_Model(exp_dir, device)
         else:
             model = DiffusionModel(exp_dir, noise_scheduler, device)
 
-        # Generate images
         with torch.no_grad():
             if model_type == "VAE":
                 z = model.generate_noise(num_samples=num_images, seed=seed)
@@ -156,12 +148,11 @@ def evaluate_model(model_class, experiments_dir, model_type="VAE"):
                 z = model.generate_noise(num_samples=num_images, seed=seed)
                 samples = model.generate_image(z)
             
-            samples = torch.clamp(samples, 0, 1)  # Ensure valid range
+            samples = torch.clamp(samples, 0, 1)
             
             for i, img in enumerate(samples):
                 save_image(img, os.path.join(gen_dir, f"{i:05d}.png"))
 
-        # Compute FID
         fid_score = fid.compute_fid(
             subset_real_dir, 
             gen_dir, 
@@ -173,30 +164,24 @@ def evaluate_model(model_class, experiments_dir, model_type="VAE"):
         print(f"{model_type} FID ({exp_path}): {fid_score:.2f}")
         fid_scores.append((exp_path, fid_score))
         
-        # Save results
         result_file = f"{model_type.lower()}_fid_scores_256.txt"
         with open(result_file, "a") as f:
             f.write(f"{exp_path},{fid_score}\n")
     
     return fid_scores
 
-# ===== Main Execution =====
 if __name__ == "__main__":
-    # Set all random seeds for reproducibility
     random.seed(seed)
     torch.manual_seed(seed)
     
-    # Prepare the fixed subset of real images
     prepare_real_subset()
     
-    # Evaluate all models
     print("\n===== Evaluating VAEs =====")
     vae_scores = evaluate_model(VAE_Model, "experiments_vae", "VAE")
     
     print("\n===== Evaluating Diffusion Models =====")
     diffusion_scores = evaluate_model(DiffusionModel, "experiments_diffusion", "Diffusion")
     
-    # Print final results
     print("\n===== Final FID Scores (256 images) =====")
     print("VAE Scores:", vae_scores)
     print("Diffusion Scores:", diffusion_scores)
