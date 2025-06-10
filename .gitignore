@@ -178,3 +178,7 @@ cython_debug/
 
 *.wav
 *.7z
+
+generative_models/data/cats
+generative_models/experiments/dcgan/*/fake_imgs/*.png
+.venv
