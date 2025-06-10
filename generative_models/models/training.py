@@ -1,3 +1,5 @@
+# https://docs.pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html
+
 import torch 
 import time
 import torchvision.utils as vutils

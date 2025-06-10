@@ -1,3 +1,5 @@
+# https://docs.pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html
+
 import torch.nn as nn
 
 class Generator(nn.Module):
