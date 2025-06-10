@@ -1,0 +1,14 @@
+{
+  "epochs": 100,
+  "img_size": 64,
+  "emb_dim": 200,
+  "in_channels": 3,
+  "base_channels": 64,
+  "num_blocks": 9,
+  "kernel_size": 2,
+  "stride": 2,
+  "vae_beta": 2.0,
+  "batch_size": 32,
+  "learning_rate": 0.001,
+  "save_interval": 1
+}
