@@ -12,9 +12,8 @@ import json
 import random
 import os
 import torch.nn.functional as F
-from torch.utils.data import random_split
 
-
+# Positional encoding for transformer models
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, dropout, max_len=5000):
         super(PositionalEncoding, self).__init__()
@@ -30,6 +29,7 @@ class PositionalEncoding(nn.Module):
         x = x + Variable(self.pe[:, :x.size(1)], requires_grad=False)
         return self.dropout(x)
 
+# Audio Spectrogram Transformer (AST) model
 class AST(nn.Module):
     def __init__(self, num_classes, model_dim=768, patch_dim=256, dropout=0.0):
         super(AST, self).__init__()
@@ -64,6 +64,7 @@ class AST(nn.Module):
             result = (max_probs < threshold).int().cpu().numpy()
             return result
 
+# Dataset class for handling dictionary-based datasets
 class DictDataset(Dataset):
     def __init__(self, dic, class_to_idx):
         self.data = []
@@ -76,6 +77,7 @@ class DictDataset(Dataset):
     def __getitem__(self, idx):
         return self.data[idx], self.labels[idx]
 
+# Custom collate function for padding sequences
 def collate_fn(batch):
     # batch contains a list of tuples of structure (sequence, label)
     sequences = [item[0] for item in batch]
@@ -86,6 +88,7 @@ def collate_fn(batch):
     
     return padded_sequences, labels
 
+# Function to load training and testing datasets
 def load_dataset(train_path, test_path, batch_size):
     train_data = torch.load(train_path)
     test_data = torch.load(test_path)
@@ -111,6 +114,7 @@ def load_dataset(train_path, test_path, batch_size):
     )
     return train_dataloader, test_dataloader
 
+# Function to load unknown dataset
 def load_unknown_dataset(unknown_path, batch_size, max_elems: int = None):
     unknown_data = torch.load(unknown_path)
     unknown_dataset = DictDataset(unknown_data, {'unknown': 0})
@@ -128,6 +132,7 @@ def load_unknown_dataset(unknown_path, batch_size, max_elems: int = None):
     )
     return unknown_dataloader
 
+# Function to evaluate the model with both known and unknown datasets
 @torch.no_grad()
 def evaluate_with_unknown(model, test_dataloader, unknown_dataloader, device, num_classes, threshold=0.5):
     model.eval()
@@ -180,6 +185,7 @@ def evaluate_with_unknown(model, test_dataloader, unknown_dataloader, device, nu
     
     return conf_matrix, accuracy_score(all_true_labels, all_preds)
 
+# Training function for the AST model
 def train_ast(num_epochs, num_classes, lr, weight_decay, model_path, 
               train_data_path, test_data_path, unknown_data_path, random_seed, confusion_matrices_path,
               unknown_threshold, batch_size):
