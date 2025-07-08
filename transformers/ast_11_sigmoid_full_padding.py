@@ -12,13 +12,13 @@ import json
 import random
 import os
 import torch.nn.functional as F
-from torch.utils.data import random_split
 
-
+# Positional encoding for transformer models
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, dropout, max_len=5000):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
+        # Create positional encoding matrix
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len).unsqueeze(1)
         div_term = torch.exp(torch.arange(0, d_model, 2) * -(math.log(10000.0) / d_model))
@@ -26,22 +26,27 @@ class PositionalEncoding(nn.Module):
         pe[:, 1::2] = torch.cos(position * div_term)
         pe = pe.unsqueeze(0)
         self.register_buffer('pe', pe)
+
     def forward(self, x):
+        # Add positional encoding to input
         x = x + Variable(self.pe[:, :x.size(1)], requires_grad=False)
         return self.dropout(x)
 
+# Audio Spectrogram Transformer (AST) model
 class AST(nn.Module):
     def __init__(self, num_classes, model_dim=768, patch_dim=256, dropout=0.0):
         super(AST, self).__init__()
         self.projection = nn.Linear(patch_dim, model_dim)
         self.positional_encoding = PositionalEncoding(model_dim, dropout)
+        # Transformer encoder with 6 layers
         encoder_layer = nn.TransformerEncoderLayer(d_model=model_dim, nhead=12, dim_feedforward=4*model_dim, dropout=dropout, activation="gelu")
         self.encoder = nn.TransformerEncoder(encoder_layer, 6)
         self.cls_token = nn.Parameter(torch.zeros(1, 1, model_dim))
         nn.init.normal_(self.cls_token, std=0.02)
         self.linear = nn.Linear(model_dim, num_classes)
-    
+
     def forward(self, x):
+        # Forward pass through the AST model
         x = self.projection(x)
         B, N, D = x.shape
         cls_tokens = self.cls_token.expand(B, 1, D)
@@ -52,10 +57,10 @@ class AST(nn.Module):
         cls_output = x[0]
         logits = self.linear(cls_output)
         return logits
-    
+
     def check_unknown(self, x, threshold=0.5):
         '''
-        return 1 in unknown, 0 otherwise
+        Check if input belongs to an unknown class based on a threshold.
         '''
         with torch.no_grad():
             logits = self.forward(x)
@@ -64,6 +69,7 @@ class AST(nn.Module):
             result = (max_probs < threshold).int().cpu().numpy()
             return result
 
+# Dataset class for handling dictionary-based datasets
 class DictDataset(Dataset):
     def __init__(self, dic, class_to_idx):
         self.data = []
@@ -71,11 +77,14 @@ class DictDataset(Dataset):
         for key, data_key in dic.items():
             self.data.extend(data_key)
             self.labels.extend([class_to_idx[key]] * len(data_key))
+
     def __len__(self):
         return len(self.data)
+
     def __getitem__(self, idx):
         return self.data[idx], self.labels[idx]
 
+# Function to load training and testing datasets
 def load_dataset(train_path, test_path):
     train_data = torch.load(train_path)
     test_data = torch.load(test_path)
@@ -83,22 +92,21 @@ def load_dataset(train_path, test_path):
     print(class_to_idx)
     train_dataset = DictDataset(train_data, class_to_idx)
     test_dataset = DictDataset(test_data, class_to_idx)
-    # train_dataloader = DataLoader(train_dataset, batch_size=1, shuffle=True)
-    # test_dataloader = DataLoader(test_dataset, batch_size=1)
     train_dataloader = DataLoader(train_dataset, batch_size=1, shuffle=True, pin_memory=True, num_workers=4)
     test_dataloader = DataLoader(test_dataset, batch_size=1, pin_memory=True, num_workers=4)
     return train_dataloader, test_dataloader
 
+# Function to load unknown dataset
 def load_unknown_dataset(unknown_path, max_elems: int = None):
     unknown_data = torch.load(unknown_path)
     unknown_dataset = DictDataset(unknown_data, {'unknown': 0})
     if max_elems is not None and max_elems < len(unknown_dataset):
-        # unknown_dataset = unknown_dataset[:max_elems]
         total_size = len(unknown_dataset)
         unknown_dataset, _ = random_split(unknown_dataset, [max_elems, total_size-max_elems])
     unknown_dataloader = DataLoader(unknown_dataset, batch_size=1, shuffle=True, pin_memory=True, num_workers=4)
     return unknown_dataloader
 
+# Function to evaluate the model with both known and unknown datasets
 @torch.no_grad()
 def evaluate_with_unknown(model, test_dataloader, unknown_dataloader, device, num_classes, threshold=0.5):
     model.eval()
@@ -155,7 +163,7 @@ def evaluate_with_unknown(model, test_dataloader, unknown_dataloader, device, nu
     
     return conf_matrix, accuracy_score(all_true_labels, all_preds)
 
-
+# Function to pad sequences in dataloaders
 def pad_dataloaders(dataloaders: list, batch_size: int):
     # Step 1: Collect all sequences from all dataloaders to find max length
     all_sequences = []
@@ -196,6 +204,7 @@ def pad_dataloaders(dataloaders: list, batch_size: int):
     
     return tuple(padded_dataloaders)
 
+# Training function for the AST model
 def train_ast(num_epochs, num_classes, lr, weight_decay, model_path, 
               train_data_path, test_data_path, unknown_data_path, random_seed, confusion_matrices_path,
               unknown_threshold, batch_size):
