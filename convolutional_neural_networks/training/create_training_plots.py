@@ -1,3 +1,4 @@
+# Import necessary libraries
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -6,8 +7,9 @@ import os
 from itertools import cycle
 import matplotlib.lines as mlines
 
-
 def create_training_loss_plot(data_folder, abbr, title, out_path='figure.png'):
+    # Generate a plot for training and test losses across different configurations.
+    # Saves the plot as an image file.
     data = {}
     for file_name in os.listdir(data_folder):
         file_data = pd.read_csv(os.path.join(data_folder, file_name))
@@ -66,9 +68,11 @@ def create_training_loss_plot(data_folder, abbr, title, out_path='figure.png'):
     plt.savefig(out_path)
 
 def generate_plots():
+    # Generate plots for learning rate, momentum, and weight decay experiments.
     create_training_loss_plot(os.path.join('final-output', 'learning_rate'), 'lr', 'Learning Rate', os.path.join('final-output', 'lr.png'))
     create_training_loss_plot(os.path.join('final-output', 'momentum'), 'momentum', 'Momentum', os.path.join('final-output', 'momentum.png'))
     create_training_loss_plot(os.path.join('final-output', 'weight_decay'), 'wd', 'Weight Decay', os.path.join('final-output', 'weight_decay.png'))
 
 if __name__ == '__main__':
+    # Entry point for the script.
     generate_plots()

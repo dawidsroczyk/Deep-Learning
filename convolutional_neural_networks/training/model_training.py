@@ -1,5 +1,4 @@
-# Code partly based on: https://pytorch.org/tutorials/beginner/transfer_learning_tutorial.html
-
+# Import necessary libraries
 import os
 import time
 import matplotlib.pyplot as plt
@@ -8,6 +7,8 @@ import torch
 import pandas as pd
 
 def train_epoch(model, dataloader, criterion, optimizer, device, phase='train'):
+    # Train or evaluate the model for one epoch.
+    # Adjusts model mode (train/eval) and computes loss and accuracy.
 
     running_loss = 0.0
     running_corrects = 0
@@ -48,6 +49,8 @@ def train_epoch(model, dataloader, criterion, optimizer, device, phase='train'):
 
 
 def train_model(model, criterion, optimizer, scheduler, dataloaders, device, num_epochs=25):
+    # Train the model over multiple epochs, saving the best model parameters.
+    # Tracks training and validation loss/accuracy history.
 
     since = time.time()
 
@@ -103,6 +106,8 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, device, num
 
 
 def plot_training_history(train_loss, train_acc, val_loss, val_acc, title, folder):
+    # Plot and save training/validation loss and accuracy over epochs.
+    # Saves results as CSV and PDF files.
 
     os.makedirs(folder, exist_ok=True)
 

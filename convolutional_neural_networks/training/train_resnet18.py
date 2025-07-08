@@ -1,3 +1,4 @@
+# Import necessary libraries
 import sys
 import torch
 import torchvision.models as models
@@ -15,6 +16,9 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR
 import random
 
 def create_data_loader(data_path, batch_size, train=False, num_augmentation=0):
+    # Create a data loader with optional data augmentation for training
+    # and normalization for both training and testing datasets.
+
     # define mean and std for normalizing the dataset
     cinic_mean = [0.47889522, 0.47227842, 0.43047404]
     cinic_std = [0.24205776, 0.23828046, 0.25874835]
@@ -92,6 +96,8 @@ def create_data_loader(data_path, batch_size, train=False, num_augmentation=0):
 
 
 def parse_arguments():
+    # Parse command-line arguments for training configuration.
+
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--epochs', type=int, default=5)
@@ -106,6 +112,8 @@ def parse_arguments():
     return args
 
 def set_random_seed(random_seed):
+    # Set random seed for reproducibility across numpy, torch, and random.
+
     np.random.seed(random_seed)
     torch.manual_seed(random_seed)
     random.seed(random_seed)
@@ -114,6 +122,9 @@ def set_random_seed(random_seed):
 
 def train_resnet18(num_epochs, learning_rate, batch_size, momentum, 
                    weight_decay, random_seed, output_folder, label_smoothing=0.0, num_augmentation=0):
+    # Train a ResNet-18 model with the specified hyperparameters.
+    # Includes training and testing loops, and saves metrics to a CSV file.
+
     set_random_seed(random_seed=random_seed)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -190,6 +201,8 @@ def train_resnet18(num_epochs, learning_rate, batch_size, momentum,
 
 
 def main():
+    # Main function to parse arguments and initiate training.
+
     args = parse_arguments()
     num_epochs = args.epochs
     learning_rate = args.lr
@@ -208,4 +221,5 @@ def main():
 
 
 if __name__ == '__main__':
+    # Entry point for the script.
     main()
