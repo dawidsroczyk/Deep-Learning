@@ -1,3 +1,4 @@
+# Import necessary libraries
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -6,7 +7,7 @@ from torch.utils.data import DataLoader, Subset, RandomSampler
 from torchvision import datasets, transforms
 import numpy as np
 import gc
-from download_dataset import get_train_dataset_path, get_test_dataset_path
+from training.download_dataset import get_train_dataset_path, get_test_dataset_path
 
 torch.backends.cudnn.benchmark = True
 torch.autograd.set_detect_anomaly(False)
@@ -15,7 +16,9 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device: {device}")
 
 class FewShotEmbedder(nn.Module):
+    # A convolutional neural network for few-shot learning embeddings.
     def __init__(self):
+        # Initialize the embedding network with convolutional blocks.
         super().__init__()
         self.blocks = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=3, padding=1),
@@ -46,9 +49,11 @@ class FewShotEmbedder(nn.Module):
         )
     
     def forward(self, x):
+        # Define the forward pass through the embedding network.
         return self.blocks(x)
 
 def create_class_dataloaders(data_path, batch_size, num_workers=2):
+    # Create data loaders for each class in the dataset.
     cinic_mean = [0.47889522, 0.47227842, 0.43047404]
     cinic_std = [0.24205776, 0.23828046, 0.25874835]
     
@@ -80,12 +85,14 @@ def create_class_dataloaders(data_path, batch_size, num_workers=2):
     return class_loaders, dataset.classes
 
 def process_batch(embedder, images):
+    # Process a batch of images through the embedding network.
     images = images.to(device, non_blocking=True)
     embeddings = embedder(images)
     return embeddings
 
 def episode(embedder, criterion, support_class_loaders, support_class_names, 
             query_class_loaders, query_class_names, C):
+    # Perform a single few-shot learning episode.
     cos = nn.CosineSimilarity(dim=-1, eps=1e-6)
     S_means = []
     Q = []
@@ -132,7 +139,7 @@ def episode(embedder, criterion, support_class_loaders, support_class_names,
 
 def train(embedder, train_classes, test_classes, M=5, S_num=5, Q_num=15,
           num_epochs=50, train_episodes=100, test_episodes=50):
-    
+    # Train the embedding network using few-shot learning episodes.
     embedder = embedder.to(device)
     criterion = nn.NLLLoss().to(device)
     optimizer = optim.AdamW(embedder.parameters(), lr=1e-4, weight_decay=1e-4)
@@ -205,6 +212,7 @@ def train(embedder, train_classes, test_classes, M=5, S_num=5, Q_num=15,
             torch.cuda.empty_cache()
 
 if __name__ == "__main__":
+    # Entry point for training the few-shot embedder.
     embedder = FewShotEmbedder()
     num_classes = 1000
     train_classes = list(range(num_classes))

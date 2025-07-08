@@ -1,8 +1,11 @@
+# Import necessary libraries
 import torch
 import torch.nn as nn
 
 class VGG_XS(nn.Module):
+    # A smaller variant of the VGG architecture for lightweight applications.
     def __init__(self, num_classes=10):
+        # Initialize the VGG_XS model with reduced dimensions and layers.
         super(VGG_XS, self).__init__()
         self.features = self._make_layers()
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
@@ -14,6 +17,7 @@ class VGG_XS(nn.Module):
         )
 
     def forward(self, x):
+        # Define the forward pass through the network.
         x = self.features(x)
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
@@ -21,6 +25,7 @@ class VGG_XS(nn.Module):
         return x
 
     def _make_layers(self):
+        # Helper function to create the convolutional layers based on the configuration.
         cfg = [
             # Optimized channel progression
             32, 32, 'M',        # Block 1 (2 convs)

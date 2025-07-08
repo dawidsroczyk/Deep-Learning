@@ -1,3 +1,4 @@
+# Import necessary libraries
 import os
 import numpy as np
 import pandas as pd
@@ -9,6 +10,8 @@ from sklearn.metrics import confusion_matrix, classification_report, accuracy_sc
 
 
 def test_model(model, testloader, device, folder):
+    # Evaluate the model on the test dataset and save results.
+    # Computes accuracy, confusion matrix, and classification report.
 
     os.makedirs(folder, exist_ok=True)
 
@@ -58,6 +61,8 @@ def test_model(model, testloader, device, folder):
 
 
 def plot_examples(model, testloader, device, class_names, folder, title, num_images=10):
+    # Plot a few test examples with their actual and predicted labels.
+    # Saves the plot as a PDF file.
 
     os.makedirs(folder, exist_ok=True)
     model.eval()
@@ -88,6 +93,8 @@ def plot_examples(model, testloader, device, class_names, folder, title, num_ima
 
 
 def plot_images_with_labels(images, actual_labels, predicted_labels, class_names, num_images, title, folder):
+    # Helper function to plot images with actual and predicted labels.
+    # Handles layout and formatting of the plot.
 
     os.makedirs(folder, exist_ok=True)
 
